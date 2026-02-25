@@ -1,0 +1,109 @@
+﻿Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+node.exe : ΓÜá The "m
+iddleware" file conve
+ntion is deprecated. 
+Please use "proxy" in
+stead. Learn more: ht
+tps://nextjs.org/docs
+/messages/middleware-
+to-proxy
+At line:1 char:1
++ & "C:\Program Files
+\nodejs/node.exe" "C:
+\Program Files\nodejs
+/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (ΓÜá The   
+  "middle...lewar    
+e-to-proxy:Strin    g
+) [], RemoteExc    ep
+tion
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 9.8s
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/60) ...
+  Generating static pages using 15 workers (15/60) 
+  Generating static pages using 15 workers (30/60) 
+  Generating static pages using 15 workers (45/60) 
+Γ£ô Generating static pages using 15 workers (60/60) in 1089.7ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /admin
+Γö£ Γùï /admin/ai
+Γö£ Γùï /admin/ai-monitor
+Γö£ Γùï /admin/analytics
+Γö£ Γùï /admin/banners
+Γö£ Γùï /admin/config
+Γö£ Γùï /admin/customers
+Γö£ Γùï /admin/dashboard
+Γö£ Γùï /admin/hotels
+Γö£ Γùï /admin/login
+Γö£ Γùï /admin/loyalty
+Γö£ Γùï /admin/payments
+Γö£ Γùï /admin/settings
+Γö£ Γùï /admin/support
+Γö£ Γùï /admin/users
+Γö£ ╞Æ /api/audit-logs
+Γö£ ╞Æ /api/banners
+Γö£ ╞Æ /api/bookings
+Γö£ ╞Æ /api/bookings/availability
+Γö£ ╞Æ /api/bookings/refund
+Γö£ ╞Æ /api/loyalty
+Γö£ ╞Æ /api/loyalty/admin
+Γö£ ╞Æ /api/notifications
+Γö£ ╞Æ /api/payments/checkout
+Γö£ ╞Æ /api/support
+Γö£ ╞Æ /api/support/messages
+Γö£ ╞Æ /api/webhooks/stripe
+Γö£ ╞Æ /auth/callback
+Γö£ Γùï /dashboard
+Γö£ Γùï /dashboard/ai
+Γö£ Γùï /dashboard/billing
+Γö£ Γùï /dashboard/bookings
+Γö£ Γùï /dashboard/customers
+Γö£ Γùï /dashboard/housekeeping
+Γö£ Γùï /dashboard/maintenance
+Γö£ Γùï /dashboard/marketing
+Γö£ Γùï /dashboard/promos
+Γö£ Γùï /dashboard/reports
+Γö£ Γùï /dashboard/reviews
+Γö£ Γùï /dashboard/rooms
+Γö£ Γùï /dashboard/settings
+Γö£ Γùï /dashboard/staff
+Γö£ Γùï /forgot-password
+Γö£ Γùï /guest/bookings
+Γö£ Γùï /guest/chat
+Γö£ Γùï /guest/dashboard
+Γö£ Γùï /guest/hotels
+Γö£ ╞Æ /guest/hotels/[id]
+Γö£ Γùï /guest/loyalty
+Γö£ Γùï /guest/notifications
+Γö£ Γùï /guest/profile
+Γö£ Γùï /guest/reviews
+Γö£ Γùï /guest/rooms
+Γö£ Γùï /guest/support
+Γö£ Γùï /login
+Γö£ Γùï /register
+Γöö Γùï /reset-password
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

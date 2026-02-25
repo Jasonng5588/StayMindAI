@@ -1,0 +1,14 @@
+﻿=== SEEDING DATA ===
+
+Using owner: 3b0fb557-d508-45c3-ae3a-20652015d746 Jason
+Updated user role to hotel_owner
+Created hotel: cdb33363-5a57-4975-98a9-2e98c7ab38f7 StayMind Grand Hotel
+Created 10 rooms
+Available rooms: 8
+Created 4 loyalty tiers
+Created 4 loyalty rewards
+
+=== SEEDING COMPLETE ===
+Hotel: StayMind Grand Hotel (cdb33363-5a57-4975-98a9-2e98c7ab38f7)
+Rooms: 10 total, 8 available
+Best Rate: RM 150

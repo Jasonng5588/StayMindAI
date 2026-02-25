@@ -1,0 +1,17 @@
+﻿=== VERIFICATION TEST ===
+
+1. HOTELS: 1 found -  StayMind Grand Hotel
+2. ROOMS: 10 total - 8 available
+3. TICKETS+PROFILES JOIN: 3 found OK
+   Profile: Jason michaelng5588@gmail.com
+4. MESSAGES+PROFILES JOIN: 3 found OK
+5. LOYALTY TIERS: 4 found
+6. LOYALTY REWARDS: 4 found
+7. BANNER INSERT: SUCCESS 
+   (cleaned up test banner)
+8. LOYALTY POINTS INSERT: SUCCESS 
+   (cleaned up test points)
+9. BOOKINGS TABLE: OK
+   - guest_id column: ERROR: Could not find the 'guest_id' column of 'bookings' in the schema cache
+
+=== DONE ===

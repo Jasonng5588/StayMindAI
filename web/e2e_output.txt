@@ -1,0 +1,52 @@
+﻿=== COMPREHENSIVE E2E TEST ===
+
+User: 3b0fb557-d508-45c3-ae3a-20652015d746, Hotel: cdb33363-5a57-4975-98a9-2e98c7ab38f7, Rooms: 10
+
+--- ADMIN DATA API ---
+Γ£à admin/data?type=dashboard
+Γ£à admin/data?type=customers
+Γ£à admin/data?type=users
+Γ£à admin/data?type=payments
+Γ£à admin/data?type=support
+Γ£à admin/data?type=hotels
+
+--- SUPPORT API ---
+Γ£à support GET (tickets list)
+Γ£à support GET (admin view, with hotel_id)
+Γ£à support POST (create ticket)
+Γ£à support PATCH (update ticket)
+
+--- SUPPORT MESSAGES API ---
+Γ£à messages GET (with profiles join)
+
+--- BANNERS API ---
+Γ£à banners GET
+Γ£à banners POST (create)
+Γ£à banners PATCH (update)
+
+--- LOYALTY ADMIN API ---
+Γ£à loyalty/admin GET (tiers)
+Γ£à loyalty/admin GET (rewards)
+Γ£à loyalty/admin GET (members with join)
+Γ£à loyalty/admin POST (adjust_points)
+
+--- GUEST LOYALTY API ---
+Γ£à loyalty GET (user points)
+Γ£à loyalty GET (rewards for redeem)
+
+--- BOOKINGS API ---
+Γ£à bookings GET (user bookings)
+Γ£à bookings GET (admin, hotel bookings)
+Γ£à bookings POST (create booking)
+
+--- NOTIFICATIONS API ---
+Γ£à notifications GET
+Γ£à notifications INSERT + DELETE
+
+--- PAYMENTS ---
+Γ£à payments with bookings join
+
+--- AVAILABILITY ---
+Γ£à rooms availability query
+
+=== RESULTS: 27 passed, 0 failed out of 27 tests ===

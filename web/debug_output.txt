@@ -1,0 +1,18 @@
+﻿=== TESTING ALL TABLES ===
+
+HOTELS: 0 found OK
+PROFILES: 1 found OK
+  First profile: 3b0fb557-d508-45c3-ae3a-20652015d746 Jason guest
+ROOMS: 0 found OK
+SUPPORT_TICKETS: 3 found OK
+  First ticket: {"id":"3c80424f-3357-4ac0-a682-4da3df4d1fb3","hotel_id":null,"user_id":"3b0fb557-d508-45c3-ae3a-20652015d746","assigned_to":null,"subject":"testing ","description":"testing","status":"open","priority"
+TICKETS+PROFILES JOIN: 0 found ERROR: Could not embed because more than one relationship was found for 'support_tickets' and 'profiles'
+TICKET_MESSAGES: 3 found OK
+LOYALTY_POINTS: 0 found OK
+LOYALTY_TIERS: 0 found OK
+LOYALTY_REWARDS: 0 found OK
+BANNERS: 0 found OK
+NOTIFICATIONS: 0 found OK
+BOOKINGS: 0 found OK
+PAYMENTS: 0 found OK
+ROOM_TYPES: 0 found ERROR: Could not find the table 'public.room_types' in the schema cache
