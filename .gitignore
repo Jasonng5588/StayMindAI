@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+.next/
+out/
+build/
+*.apk
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+mobile/.dart_tool/
+mobile/.packages
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/
+mobile/macos/
+mobile/windows/
+mobile/linux/
+
+# Supabase
+supabase/.temp/
+
+# Misc
+*.log
+analyze_output*.txt
+build_log*.txt
+gradle_*.txt
