@@ -60,6 +60,19 @@ class _BookingsScreenState extends State<BookingsScreen> with SingleTickerProvid
     }
   }
 
+  String _getHotelName(Map<String, dynamic> b) {
+    if (b['hotels'] is Map) return b['hotels']['name'] ?? 'Hotel';
+    return 'Hotel Booking';
+  }
+
+  String _getRoomInfo(Map<String, dynamic> b) {
+    if (b['rooms'] is Map) {
+      final room = b['rooms'] as Map;
+      return 'Room ${room['room_number'] ?? ''}';
+    }
+    return 'Room';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -80,169 +93,144 @@ class _BookingsScreenState extends State<BookingsScreen> with SingleTickerProvid
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.error_outline, size: 48, color: cs.error),
-                    const SizedBox(height: 12),
-                    Text('Failed to load bookings', style: TextStyle(fontSize: 16, color: cs.error)),
-                    const SizedBox(height: 8),
-                    TextButton.icon(icon: const Icon(Icons.refresh), label: const Text('Retry'), onPressed: _load),
-                  ]),
-                )
-              : TabBarView(
-                  controller: _tabC,
-                  children: ['upcoming', 'active', 'past'].map((type) {
-                    final list = _filtered(type);
-                    return list.isEmpty
-                        ? Center(
-                            child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: cs.primaryContainer.withOpacity(0.3),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.calendar_today, size: 40, color: cs.primary),
-                              ),
-                              const SizedBox(height: 16),
-                              Text('No $type bookings', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                              const SizedBox(height: 4),
-                              Text('Your $type bookings will appear here', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-                            ]),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _load,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: list.length,
-                              itemBuilder: (_, i) {
-                                final b = list[i];
-                                final status = b['status'] ?? 'pending';
-                                final statusCol = _statusColor(status);
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+          ? Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.error_outline, size: 48, color: cs.error),
+                const SizedBox(height: 12),
+                Text('Failed to load bookings', style: TextStyle(fontSize: 16, color: cs.error)),
+                const SizedBox(height: 4),
+                Text('Check your connection and try again', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                const SizedBox(height: 12),
+                FilledButton.icon(icon: const Icon(Icons.refresh), label: const Text('Retry'), onPressed: _load),
+              ]),
+            )
+          : TabBarView(
+              controller: _tabC,
+              children: ['upcoming', 'active', 'past'].map((type) {
+                final list = _filtered(type);
+                return list.isEmpty
+                  ? Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.calendar_today, size: 40, color: cs.primary),
+                        ),
+                        const SizedBox(height: 16),
+                        Text('No $type bookings', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        Text('Your $type bookings will appear here', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                      ]),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: list.length,
+                        itemBuilder: (_, i) {
+                          final b = list[i];
+                          final status = b['status'] ?? 'pending';
+                          final statusCol = _statusColor(status);
 
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
+                              color: cs.surface,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Header
+                                Container(
+                                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
-                                    color: cs.surface,
+                                    color: statusCol.withOpacity(0.06),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                                   ),
+                                  child: Row(children: [
+                                    Icon(Icons.hotel, size: 20, color: statusCol),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _getHotelName(b),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: statusCol.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                        Icon(_statusIcon(status), size: 14, color: statusCol),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          status.replaceAll('_', ' ').toUpperCase(),
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusCol, letterSpacing: 0.5),
+                                        ),
+                                      ]),
+                                    ),
+                                  ]),
+                                ),
+                                // Body
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // Header with hotel name and status
-                                      Container(
-                                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-                                        decoration: BoxDecoration(
-                                          color: statusCol.withOpacity(0.06),
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                      Row(children: [
+                                        Icon(Icons.bed_outlined, size: 16, color: cs.onSurfaceVariant),
+                                        const SizedBox(width: 6),
+                                        Text(_getRoomInfo(b), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                                      ]),
+                                      const SizedBox(height: 10),
+                                      Row(children: [
+                                        Icon(Icons.calendar_today, size: 14, color: cs.onSurfaceVariant),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '${b['check_in'] ?? '?'} \u2192 ${b['check_out'] ?? '?'}',
+                                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.hotel, size: 20, color: statusCol),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                b['hotels']?['name'] ?? 'Hotel',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                                maxLines: 1, overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: statusCol.withOpacity(0.15),
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                                Icon(_statusIcon(status), size: 14, color: statusCol),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  status.replaceAll('_', ' ').toUpperCase(),
-                                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusCol, letterSpacing: 0.5),
-                                                ),
-                                              ]),
-                                            ),
-                                          ],
+                                      ]),
+                                      const SizedBox(height: 10),
+                                      Row(children: [
+                                        if (b['booking_number'] != null) Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: cs.surfaceVariant.withOpacity(0.5),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            '#${b['booking_number']}',
+                                            style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                                          ),
                                         ),
-                                      ),
-                                      // Body
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Room info
-                                            Row(children: [
-                                              Icon(Icons.bed_outlined, size: 16, color: cs.onSurfaceVariant),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  'Room ${b['rooms']?['room_number'] ?? ''} \u2022 ${b['rooms']?['name'] ?? 'Standard'}',
-                                                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
-                                                ),
-                                              ),
-                                            ]),
-                                            const SizedBox(height: 10),
-                                            // Dates
-                                            Row(children: [
-                                              _DateChip(label: 'Check-in', date: b['check_in'] ?? '', cs: cs),
-                                              Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                                child: Icon(Icons.arrow_forward, size: 16, color: cs.onSurfaceVariant),
-                                              ),
-                                              _DateChip(label: 'Check-out', date: b['check_out'] ?? '', cs: cs),
-                                            ]),
-                                            const SizedBox(height: 12),
-                                            // Price and booking code
-                                            Row(children: [
-                                              if (b['booking_number'] != null) ...[
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: cs.surfaceVariant.withOpacity(0.5),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                  ),
-                                                  child: Text(
-                                                    '#${b['booking_number']}',
-                                                    style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
-                                                  ),
-                                                ),
-                                              ],
-                                              const Spacer(),
-                                              Text(
-                                                'RM ${(b['total_amount'] ?? 0).toStringAsFixed(0)}',
-                                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.primary),
-                                              ),
-                                            ]),
-                                          ],
+                                        const Spacer(),
+                                        Text(
+                                          'RM ${(b['total_amount'] ?? 0).toStringAsFixed(0)}',
+                                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.primary),
                                         ),
-                                      ),
+                                      ]),
                                     ],
                                   ),
-                                );
-                              },
+                                ),
+                              ],
                             ),
                           );
-                  }).toList(),
-                ),
+                        },
+                      ),
+                    );
+              }).toList(),
+            ),
     );
-  }
-}
-
-class _DateChip extends StatelessWidget {
-  final String label, date;
-  final ColorScheme cs;
-  const _DateChip({required this.label, required this.date, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 2),
-      Text(date, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-    ]);
   }
 }
