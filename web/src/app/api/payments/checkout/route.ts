@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2024-12-18.acacia' as Stripe.LatestApiVersion })
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-12-18.acacia' as Stripe.LatestApiVersion })
 
 // POST: Create a Stripe checkout session
 export async function POST(request: Request) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
-        const session = await stripe.checkout.sessions.create({
+        const session = await getStripe().checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: [{
                 price_data: {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2024-12-18.acacia' as Stripe.LatestApiVersion })
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-12-18.acacia' as Stripe.LatestApiVersion })
 
 // POST: Handle Stripe webhook events
 export async function POST(request: Request) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
         let event: Stripe.Event
 
         if (webhookSecret && sig) {
-            event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
+            event = getStripe().webhooks.constructEvent(body, sig, webhookSecret)
         } else {
             event = JSON.parse(body, (key, value) => {
                 if (key === 'created') return value
