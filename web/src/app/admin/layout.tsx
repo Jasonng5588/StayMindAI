@@ -34,7 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [checking, setChecking] = useState(true)
 
     // Skip layout for login page
-    const isLoginPage = pathname === '/admin/login' || pathname === '/admin'
+    const isLoginPage = pathname === '/admin/login'
 
     useEffect(() => {
         setDarkMode(document.documentElement.classList.contains('dark'))

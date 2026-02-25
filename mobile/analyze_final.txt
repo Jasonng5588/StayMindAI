@@ -1,0 +1,17 @@
+﻿
+ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé A new version of Flutter is available!                  Γöé
+Γöé                                                         Γöé
+Γöé To update to the latest version, run "flutter upgrade". Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+Analyzing mobile...                                             
+
+   info - Use 'const' with the constructor to improve performance - lib\features\guest\booking_flow_screen.dart:219:15 - prefer_const_constructors
+   info - The variable name '_PaymentChip' isn't a lowerCamelCase identifier - lib\features\guest\booking_flow_screen.dart:256:10 - non_constant_identifier_names
+  error - The method 'UserAttributes' isn't defined for the type '_EditProfileScreenState' - lib\features\guest\edit_profile_screen.dart:33:9 - undefined_method
+   info - Statements in an if should be enclosed in a block - lib\features\guest\room_detail_screen.dart:22:52 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\guest\room_detail_screen.dart:22:74 - curly_braces_in_flow_control_structures
+   info - Use 'const' with the constructor to improve performance - lib\features\guest\rooms_screen.dart:69:9 - prefer_const_constructors
+   info - Don't use 'BuildContext's across async gaps - lib\features\guest\support_screen.dart:70:21 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\staff\rooms_screen.dart:46:251 - use_build_context_synchronously
+

@@ -14,6 +14,7 @@ import '../features/guest/chat_screen.dart';
 import '../features/guest/notifications_screen.dart';
 import '../features/guest/reviews_screen.dart';
 import '../features/guest/profile_screen.dart';
+import '../features/guest/edit_profile_screen.dart';
 import '../features/guest/loyalty_screen.dart';
 import '../features/guest/support_screen.dart';
 import '../features/guest/guest_shell.dart';
@@ -76,6 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Tab 4: Profile
           StatefulShellBranch(routes: [
             GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen(), routes: [
+              GoRoute(path: 'edit', builder: (_, __) => const EditProfileScreen()),
               GoRoute(path: 'reviews', builder: (_, __) => const ReviewsScreen()),
               GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
               GoRoute(path: 'loyalty', builder: (_, __) => const LoyaltyScreen()),
