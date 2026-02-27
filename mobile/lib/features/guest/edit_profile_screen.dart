@@ -10,6 +10,10 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _dobCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _countryCtrl = TextEditingController();
   bool _saving = false;
 
   @override
@@ -18,24 +22,58 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = SupabaseService.currentUser;
     _nameCtrl.text = user?.userMetadata?['full_name'] ?? '';
     _phoneCtrl.text = user?.userMetadata?['phone'] ?? '';
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+    try {
+      final data = await SupabaseService.client.from('profiles').select().eq('id', user.id).maybeSingle();
+      if (data != null && mounted) {
+        setState(() {
+          _dobCtrl.text = data['date_of_birth'] ?? '';
+          _addressCtrl.text = data['address'] ?? '';
+          _cityCtrl.text = data['city'] ?? '';
+          _countryCtrl.text = data['country'] ?? '';
+        });
+      }
+    } catch (_) {} // fail silently
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
+    _dobCtrl.dispose();
+    _addressCtrl.dispose();
+    _cityCtrl.dispose();
+    _countryCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await SupabaseService.client.auth.updateUser(
-        UserAttributes(data: {
+      final user = SupabaseService.currentUser;
+      if (user != null) {
+        await SupabaseService.client.auth.updateUser(
+          UserAttributes(data: {
+            'full_name': _nameCtrl.text.trim(),
+            'phone': _phoneCtrl.text.trim(),
+          }),
+        );
+        // Also update profiles table
+        await SupabaseService.client.from('profiles').update({
           'full_name': _nameCtrl.text.trim(),
           'phone': _phoneCtrl.text.trim(),
-        }),
-      );
+          'date_of_birth': _dobCtrl.text.trim().isEmpty ? null : _dobCtrl.text.trim(),
+          'address': _addressCtrl.text.trim(),
+          'city': _cityCtrl.text.trim(),
+          'country': _countryCtrl.text.trim(),
+        }).eq('id', user.id);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -151,6 +189,91 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               filled: true,
               fillColor: cs.surfaceVariant.withOpacity(0.3),
             ),
+          ),
+          const SizedBox(height: 20),
+
+          // Date of Birth
+          Text('Date of Birth', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _dobCtrl,
+            keyboardType: TextInputType.datetime,
+            readOnly: true,
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: DateTime(2000),
+                firstDate: DateTime(1900),
+                lastDate: DateTime.now(),
+              );
+              if (date != null) {
+                _dobCtrl.text = date.toIso8601String().split('T')[0];
+              }
+            },
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.calendar_today_outlined),
+              hintText: 'YYYY-MM-DD',
+              filled: true,
+              fillColor: cs.surfaceVariant.withOpacity(0.3),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Address
+          Text('Address', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _addressCtrl,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.home_outlined),
+              hintText: 'Street address',
+              filled: true,
+              fillColor: cs.surfaceVariant.withOpacity(0.3),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // City & Country
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('City', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _cityCtrl,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.location_city_outlined),
+                        hintText: 'City',
+                        filled: true,
+                        fillColor: cs.surfaceVariant.withOpacity(0.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Country', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _countryCtrl,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.public_outlined),
+                        hintText: 'Country',
+                        filled: true,
+                        fillColor: cs.surfaceVariant.withOpacity(0.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 32),
 

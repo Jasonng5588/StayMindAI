@@ -70,7 +70,12 @@ class _BookingsScreenState extends State<BookingsScreen> with SingleTickerProvid
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _BookingDetailSheet(booking: booking, statusColor: _statusColor(booking['status'] ?? ''), statusIcon: _statusIcon(booking['status'] ?? '')),
+      builder: (_) => _BookingDetailSheet(
+        booking: booking,
+        statusColor: _statusColor(booking['status'] ?? ''),
+        statusIcon: _statusIcon(booking['status'] ?? ''),
+        onCancelled: _load,
+      ),
     );
   }
 
@@ -205,28 +210,69 @@ class _BookingsScreenState extends State<BookingsScreen> with SingleTickerProvid
   }
 }
 
-class _BookingDetailSheet extends StatelessWidget {
+class _BookingDetailSheet extends StatefulWidget {
   final Map<String, dynamic> booking;
   final Color statusColor;
   final IconData statusIcon;
+  final VoidCallback onCancelled;
 
-  const _BookingDetailSheet({required this.booking, required this.statusColor, required this.statusIcon});
+  const _BookingDetailSheet({required this.booking, required this.statusColor, required this.statusIcon, required this.onCancelled});
 
-  String get _bookingNumber => booking['booking_number']?.toString() ?? booking['id']?.toString().substring(0, 8).toUpperCase() ?? 'N/A';
+  @override
+  State<_BookingDetailSheet> createState() => _BookingDetailSheetState();
+}
+
+class _BookingDetailSheetState extends State<_BookingDetailSheet> {
+  bool _cancelling = false;
+
+  String get _bookingNumber => widget.booking['booking_number']?.toString() ?? widget.booking['id']?.toString().substring(0, 8).toUpperCase() ?? 'N/A';
   String get _hotelName {
-    if (booking['hotels'] is Map) return (booking['hotels'] as Map)['name']?.toString() ?? 'Hotel';
+    if (widget.booking['hotels'] is Map) return (widget.booking['hotels'] as Map)['name']?.toString() ?? 'Hotel';
     return 'Hotel Booking';
   }
   String get _roomInfo {
-    if (booking['rooms'] is Map) return 'Room ${(booking['rooms'] as Map)['room_number'] ?? ''}';
+    if (widget.booking['rooms'] is Map) return 'Room ${(widget.booking['rooms'] as Map)['room_number'] ?? ''}';
     return 'Room';
+  }
+
+  Future<void> _cancelBooking() async {
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Cancel Booking'),
+      content: const Text('Are you sure you want to cancel this booking? Refunds will be processed according to the hotel policy.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No, Keep It')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error), child: const Text('Yes, Cancel')),
+      ],
+    ));
+
+    if (confirmed == true) {
+      if (!mounted) return;
+      setState(() => _cancelling = true);
+      try {
+        await SupabaseService.cancelBooking(widget.booking['id'] as String);
+        if (mounted) {
+          Navigator.pop(context); // close sheet
+          widget.onCancelled(); // refresh list
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text('Booking cancelled successfully'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: Theme.of(context).colorScheme.error, behavior: SnackBarBehavior.floating));
+        }
+      }
+      if (mounted) setState(() => _cancelling = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final status = booking['status'] ?? 'pending';
-    final qrData = 'STAYMIND:${_bookingNumber}:${booking['id'] ?? ''}';
+    final status = widget.booking['status'] ?? 'pending';
+    final qrData = 'STAYMIND:${_bookingNumber}:${widget.booking['id'] ?? ''}';
 
     return DraggableScrollableSheet(
       initialChildSize: 0.82,
@@ -249,17 +295,17 @@ class _BookingDetailSheet extends StatelessWidget {
                 Row(children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(Icons.hotel, color: statusColor, size: 24),
+                    decoration: BoxDecoration(color: widget.statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(Icons.hotel, color: widget.statusColor, size: 24),
                   ),
                   const SizedBox(width: 14),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(_hotelName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                     const SizedBox(height: 2),
                     Row(children: [
-                      Icon(statusIcon, size: 14, color: statusColor),
+                      Icon(widget.statusIcon, size: 14, color: widget.statusColor),
                       const SizedBox(width: 4),
-                      Text(status.replaceAll('_', ' ').toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: statusColor)),
+                      Text(status.replaceAll('_', ' ').toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: widget.statusColor)),
                     ]),
                   ])),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
@@ -313,12 +359,12 @@ class _BookingDetailSheet extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 _DetailRow(icon: Icons.bed_outlined, label: 'Room', value: _roomInfo),
-                _DetailRow(icon: Icons.people_outline, label: 'Guests', value: '${booking['guests'] ?? 1} Guest${(booking['guests'] ?? 1) > 1 ? 's' : ''}'),
-                _DetailRow(icon: Icons.login, label: 'Check In', value: booking['check_in']?.toString() ?? '—'),
-                _DetailRow(icon: Icons.logout, label: 'Check Out', value: booking['check_out']?.toString() ?? '—'),
+                _DetailRow(icon: Icons.people_outline, label: 'Guests', value: '${widget.booking['guests'] ?? 1} Guest${(widget.booking['guests'] ?? 1) > 1 ? 's' : ''}'),
+                _DetailRow(icon: Icons.login, label: 'Check In', value: widget.booking['check_in']?.toString() ?? '—'),
+                _DetailRow(icon: Icons.logout, label: 'Check Out', value: widget.booking['check_out']?.toString() ?? '—'),
 
-                if (booking['special_requests'] != null && booking['special_requests'].toString().isNotEmpty)
-                  _DetailRow(icon: Icons.notes, label: 'Special Requests', value: booking['special_requests'].toString()),
+                if (widget.booking['special_requests'] != null && widget.booking['special_requests'].toString().isNotEmpty)
+                  _DetailRow(icon: Icons.notes, label: 'Special Requests', value: widget.booking['special_requests'].toString()),
 
                 const SizedBox(height: 16),
                 const Divider(),
@@ -328,29 +374,45 @@ class _BookingDetailSheet extends StatelessWidget {
                 Text('Payment Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurface)),
                 const SizedBox(height: 12),
 
-                if (booking['voucher_code'] != null) ...[
+                if (widget.booking['voucher_code'] != null) ...[
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text('Subtotal', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-                    Text('RM ${((booking['total_amount'] ?? 0) + (booking['discount_amount'] ?? 0)).toStringAsFixed(0)}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+                    Text('RM ${((widget.booking['total_amount'] ?? 0) + (widget.booking['discount_amount'] ?? 0)).toStringAsFixed(0)}', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
                   ]),
                   const SizedBox(height: 6),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Row(children: [
                       const Icon(Icons.local_offer, size: 14, color: Colors.green),
                       const SizedBox(width: 4),
-                      Text('Voucher (${booking['voucher_code']})', style: const TextStyle(color: Colors.green, fontSize: 13)),
+                      Text('Voucher (${widget.booking['voucher_code']})', style: const TextStyle(color: Colors.green, fontSize: 13)),
                     ]),
-                    Text('-RM ${(booking['discount_amount'] ?? 0).toStringAsFixed(0)}', style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text('-RM ${(widget.booking['discount_amount'] ?? 0).toStringAsFixed(0)}', style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
                   ]),
                   const Divider(height: 16),
                 ],
 
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   const Text('Total Paid', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text('RM ${(booking['total_amount'] ?? 0).toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: cs.primary)),
+                  Text('RM ${(widget.booking['total_amount'] ?? 0).toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: cs.primary)),
                 ]),
 
                 const SizedBox(height: 24),
+
+                if (status == 'confirmed' || status == 'pending') ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _cancelling ? null : _cancelBooking,
+                      icon: _cancelling ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(Icons.cancel_outlined, color: cs.error),
+                      label: Text('Cancel My Booking', style: TextStyle(color: cs.error)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: cs.error.withOpacity(0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // ── Footer ────────────────────────────────────────────
                 Container(
