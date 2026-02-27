@@ -3,21 +3,57 @@
 class SupabaseService {
   static SupabaseClient get client => Supabase.instance.client;
 
-  static Future<AuthResponse> signUp(String email, String password, String name, {String role = 'guest'}) {
-    return client.auth.signUp(email: email, password: password, data: {'full_name': name, 'role': role});
+  // --- Auth ---
+  static Future<AuthResponse> signUp(String email, String password, String name, {String role = 'guest'}) async {
+    final res = await client.auth.signUp(email: email, password: password, data: {'full_name': name, 'role': role});
+    if (res.user != null) await _upsertProfile(res.user!.id, email, name, role);
+    return res;
   }
-  static Future<AuthResponse> signIn(String email, String password) {
-    return client.auth.signInWithPassword(email: email, password: password);
+
+  static Future<AuthResponse> signIn(String email, String password) async {
+    final res = await client.auth.signInWithPassword(email: email, password: password);
+    if (res.user != null) {
+      final name = res.user!.userMetadata?['full_name'] ?? email.split('@')[0];
+      final role = res.user!.userMetadata?['role'] ?? 'guest';
+      await _upsertProfile(res.user!.id, email, name, role);
+    }
+    return res;
   }
+
+  static Future<void> _upsertProfile(String id, String email, String name, String role) async {
+    try {
+      await client.from('profiles').upsert({
+        'id': id,
+        'email': email,
+        'full_name': name,
+        'role': role,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'id');
+    } catch (e) {
+      print('_upsertProfile failed (non-fatal): $e');
+    }
+  }
+
   static Future<bool> signInWithGoogle() async {
     return client.auth.signInWithOAuth(OAuthProvider.google, redirectTo: 'io.supabase.staymind://login-callback');
   }
+
   static Future<void> signOut() => client.auth.signOut();
   static Future<void> resetPassword(String email) => client.auth.resetPasswordForEmail(email);
   static User? get currentUser => client.auth.currentUser;
   static Session? get currentSession => client.auth.currentSession;
   static String? get _userId => currentUser?.id;
 
+  // Ensure profile exists before any insert that references profiles(id)
+  static Future<void> ensureProfile() async {
+    final user = currentUser;
+    if (user == null) return;
+    final name = user.userMetadata?['full_name'] ?? user.email?.split('@')[0] ?? 'Guest';
+    final role = user.userMetadata?['role'] ?? 'guest';
+    await _upsertProfile(user.id, user.email ?? '', name, role);
+  }
+
+  // --- Hotels ---
   static Future<List<Map<String, dynamic>>> searchHotels({String? query, String? city, double? minPrice, double? maxPrice, int? minRating}) async {
     try {
       var q = client.from('hotels').select('*, room_types(name, base_price)').eq('is_active', true);
@@ -34,6 +70,7 @@ class SupabaseService {
     catch (e) { print('getHotel error: $e'); return null; }
   }
 
+  // --- Rooms ---
   static Future<Map<String, dynamic>?> getRoomType(String id) async {
     try { return await client.from('room_types').select('*, rooms(*)').eq('id', id).maybeSingle(); }
     catch (e) { print('getRoomType error: $e'); return null; }
@@ -50,8 +87,10 @@ class SupabaseService {
     } catch (e) { print('checkAvailability error: $e'); return []; }
   }
 
+  // --- Bookings ---
   static Future<Map<String, dynamic>> createBooking({required String hotelId, required String roomId, String? roomTypeId, required String checkIn, required String checkOut, int guests = 1, required double totalAmount, String? specialRequests, String? promoCode}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
+    await ensureProfile(); // Guarantee profile exists before FK insert
     final code = 'BK-' + DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
     final data = <String, dynamic>{'hotel_id': hotelId, 'user_id': _userId, 'room_id': roomId, 'check_in': checkIn, 'check_out': checkOut, 'guests': guests, 'total_amount': totalAmount, 'status': 'confirmed', 'booking_number': code};
     if (specialRequests != null && specialRequests.isNotEmpty) data['special_requests'] = specialRequests;
@@ -70,9 +109,10 @@ class SupabaseService {
 
   static Future<void> cancelBooking(String bookingId) => client.from('bookings').update({'status': 'cancelled'}).eq('id', bookingId);
 
-  // NOTE: reviews table uses guest_id, NOT user_id
+  // --- Reviews (NOTE: table uses guest_id, NOT user_id) ---
   static Future<void> submitReview(String hotelId, int rating, String comment, {String? bookingId}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
+    await ensureProfile();
     final data = <String, dynamic>{'hotel_id': hotelId, 'guest_id': _userId, 'rating': rating, 'comment': comment};
     if (bookingId != null) data['booking_id'] = bookingId;
     await client.from('reviews').insert(data);
@@ -86,6 +126,7 @@ class SupabaseService {
     } catch (e) { print('getMyReviews error: $e'); return []; }
   }
 
+  // --- Notifications ---
   static Future<List<Map<String, dynamic>>> getNotifications() async {
     if (_userId == null) return [];
     try { return List<Map<String, dynamic>>.from(await client.from('notifications').select('*').eq('user_id', _userId!).order('created_at', ascending: false).limit(50)); }
@@ -93,6 +134,7 @@ class SupabaseService {
   }
   static Future<void> markNotificationRead(String id) => client.from('notifications').update({'is_read': true}).eq('id', id);
 
+  // --- Staff ---
   static Future<Map<String, dynamic>?> getStaffHotel() async {
     try {
       final staff = await client.from('hotel_staff').select('hotel_id').eq('user_id', _userId!).eq('is_active', true).maybeSingle();
@@ -106,59 +148,54 @@ class SupabaseService {
     catch (e) { print('getHousekeepingTasks error: $e'); return []; }
   }
   static Future<void> updateTaskStatus(String taskId, String status) => client.from('housekeeping_tasks').update({'status': status}).eq('id', taskId);
-
   static Future<List<Map<String, dynamic>>> getMaintenanceTasks(String hotelId) async {
     try { return List<Map<String, dynamic>>.from(await client.from('maintenance_tasks').select('*, rooms(room_number)').eq('hotel_id', hotelId).order('created_at', ascending: false)); }
     catch (e) { print('getMaintenanceTasks error: $e'); return []; }
   }
-
   static Future<List<Map<String, dynamic>>> getTodayArrivals(String hotelId) async {
-    try { final today = DateTime.now().toIso8601String().split('T')[0]; return List<Map<String, dynamic>>.from(await client.from('bookings').select('*, rooms(room_number)').eq('hotel_id', hotelId).eq('check_in', today).inFilter('status', ['confirmed'])); }
-    catch (e) { return []; }
+    try { final today = DateTime.now().toIso8601String().split('T')[0]; return List<Map<String, dynamic>>.from(await client.from('bookings').select('*, rooms(room_number)').eq('hotel_id', hotelId).eq('check_in', today).inFilter('status', ['confirmed'])); } catch (e) { return []; }
   }
   static Future<List<Map<String, dynamic>>> getTodayDepartures(String hotelId) async {
-    try { final today = DateTime.now().toIso8601String().split('T')[0]; return List<Map<String, dynamic>>.from(await client.from('bookings').select('*, rooms(room_number)').eq('hotel_id', hotelId).eq('check_out', today).inFilter('status', ['checked_in'])); }
-    catch (e) { return []; }
+    try { final today = DateTime.now().toIso8601String().split('T')[0]; return List<Map<String, dynamic>>.from(await client.from('bookings').select('*, rooms(room_number)').eq('hotel_id', hotelId).eq('check_out', today).inFilter('status', ['checked_in'])); } catch (e) { return []; }
   }
   static Future<void> checkInGuest(String bookingId) => client.from('bookings').update({'status': 'checked_in'}).eq('id', bookingId);
   static Future<void> checkOutGuest(String bookingId) => client.from('bookings').update({'status': 'checked_out'}).eq('id', bookingId);
-
   static Future<List<Map<String, dynamic>>> getRoomStatuses(String hotelId) async {
-    try { return List<Map<String, dynamic>>.from(await client.from('rooms').select('*, room_types(name)').eq('hotel_id', hotelId).order('room_number')); }
-    catch (e) { return []; }
+    try { return List<Map<String, dynamic>>.from(await client.from('rooms').select('*, room_types(name)').eq('hotel_id', hotelId).order('room_number')); } catch (e) { return []; }
   }
   static Future<void> updateRoomStatus(String roomId, String status) => client.from('rooms').update({'status': status}).eq('id', roomId);
 
+  // --- Loyalty ---
   static Future<List<Map<String, dynamic>>> getLoyaltyPoints() async {
     if (_userId == null) return [];
     try { return List<Map<String, dynamic>>.from(await client.from('loyalty_points').select('*').eq('user_id', _userId!).order('created_at', ascending: false)); }
     catch (e) { print('getLoyaltyPoints error: $e'); return []; }
   }
   static Future<List<Map<String, dynamic>>> getLoyaltyTiers() async {
-    try { return List<Map<String, dynamic>>.from(await client.from('loyalty_tiers').select('*').order('sort_order', ascending: true)); }
-    catch (e) { return []; }
+    try { return List<Map<String, dynamic>>.from(await client.from('loyalty_tiers').select('*').order('sort_order', ascending: true)); } catch (e) { return []; }
   }
   static Future<List<Map<String, dynamic>>> getLoyaltyRewards() async {
-    try { return List<Map<String, dynamic>>.from(await client.from('loyalty_rewards').select('*').eq('is_active', true).order('points_cost', ascending: true)); }
-    catch (e) { return []; }
+    try { return List<Map<String, dynamic>>.from(await client.from('loyalty_rewards').select('*').eq('is_active', true).order('points_cost', ascending: true)); } catch (e) { return []; }
   }
 
   static Future<bool> redeemReward(String rewardId, String rewardName, int pointsCost) async {
     if (_userId == null) return false;
     try {
+      await ensureProfile();
       String? hotelId;
       try { final b = await client.from('bookings').select('hotel_id').eq('user_id', _userId!).limit(1).maybeSingle(); hotelId = b?['hotel_id']?.toString(); } catch (_) {}
       if (hotelId == null || hotelId.isEmpty) {
         try { final h = await client.from('hotels').select('id').eq('is_active', true).limit(1).maybeSingle(); hotelId = h?['id']?.toString(); } catch (_) {}
       }
-      if (hotelId == null || hotelId.isEmpty) { print('redeemReward: no hotel_id'); return false; }
-      final insertData = <String, dynamic>{'user_id': _userId, 'hotel_id': hotelId, 'points': -pointsCost, 'balance_after': 0, 'type': 'redemption', 'description': 'Redeemed: ' + rewardName};
+      final insertData = <String, dynamic>{'user_id': _userId, 'points': -pointsCost, 'balance_after': 0, 'type': 'redemption', 'description': 'Redeemed: ' + rewardName};
+      if (hotelId != null && hotelId.isNotEmpty) insertData['hotel_id'] = hotelId;
       if (rewardId.isNotEmpty) insertData['reward_id'] = rewardId;
       await client.from('loyalty_points').insert(insertData);
       return true;
     } catch (e) { print('redeemReward error: $e'); return false; }
   }
 
+  // --- Hotels for Review ---
   static Future<List<Map<String, dynamic>>> getBookedHotels() async {
     if (_userId == null) return [];
     try {
@@ -175,25 +212,32 @@ class SupabaseService {
     } catch (e) { print('getBookedHotels error: $e'); return []; }
   }
 
+  // --- Support ---
   static Future<List<Map<String, dynamic>>> getSupportTickets() async {
     if (_userId == null) return [];
     try { return List<Map<String, dynamic>>.from(await client.from('support_tickets').select('*').eq('user_id', _userId!).order('created_at', ascending: false)); }
     catch (e) { print('getSupportTickets error: $e'); return []; }
   }
   static Future<List<Map<String, dynamic>>> getTicketMessages(String ticketId) async {
-    try { return List<Map<String, dynamic>>.from(await client.from('ticket_messages').select('*').eq('ticket_id', ticketId).order('created_at', ascending: true)); }
-    catch (e) { return []; }
+    try { return List<Map<String, dynamic>>.from(await client.from('ticket_messages').select('*').eq('ticket_id', ticketId).order('created_at', ascending: true)); } catch (e) { return []; }
   }
   static Future<void> sendTicketMessage(String ticketId, String message) async {
     await client.from('ticket_messages').insert({'ticket_id': ticketId, 'sender_id': _userId, 'role': 'guest', 'message': message});
   }
+
   static Future<void> createSupportTicket({required String subject, required String description, String category = 'general'}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
-    final ticket = await client.from('support_tickets').insert({'user_id': _userId, 'subject': subject, 'description': description, 'category': category, 'priority': 'medium', 'status': 'open'}).select().single();
-    try { await client.from('ticket_messages').insert({'ticket_id': ticket['id'], 'sender_id': _userId, 'role': 'guest', 'message': description}); }
-    catch (e) { print('ticket_messages insert non-fatal: $e'); }
+    await ensureProfile(); // Guarantee profile exists before FK insert
+    final ticket = await client.from('support_tickets').insert({
+      'user_id': _userId, 'subject': subject, 'description': description,
+      'category': category, 'priority': 'medium', 'status': 'open',
+    }).select().single();
+    try {
+      await client.from('ticket_messages').insert({'ticket_id': ticket['id'], 'sender_id': _userId, 'role': 'guest', 'message': description});
+    } catch (e) { print('ticket_messages insert (non-fatal): $e'); }
   }
 
+  // --- AI Chatbot ---
   static Future<String> chatWithAI(String hotelId, String message, List<Map<String, String>> history) async {
     try {
       final res = await client.functions.invoke('chatbot', body: {'hotel_id': hotelId, 'message': message, 'conversation_history': history});

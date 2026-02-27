@@ -76,7 +76,15 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
 
       setState(() { _processing = false; _bookingResult = result; _step = 3; });
     } catch (e) {
-      setState(() { _processing = false; _error = 'Booking failed: ${e.toString().split(':').last.trim()}'; });
+      String msg = e.toString();
+      // Extract readable message from PostgrestException
+      if (msg.contains('message')) {
+        final match = RegExp(r'message: ([^\n,}]+)').firstMatch(msg);
+        if (match != null) msg = match.group(1)?.trim() ?? msg;
+      } else if (msg.contains('Exception: ')) {
+        msg = msg.replaceFirst('Exception: ', '');
+      }
+      setState(() { _processing = false; _error = 'Booking failed: $msg'; });
     }
   }
 
