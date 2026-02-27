@@ -28,28 +28,40 @@ class _SupportScreenState extends State<SupportScreen> {
   @override
   void dispose() {
     _msgC.dispose(); _subjectC.dispose(); _descC.dispose(); _scrollC.dispose();
+    _pollTimer?.cancel();
     _unsubscribeRealtime();
     super.dispose();
   }
 
   void _unsubscribeRealtime() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
     if (_realtimeChannel != null) {
       SupabaseService.client.removeChannel(_realtimeChannel!);
       _realtimeChannel = null;
     }
   }
 
+  Timer? _pollTimer;
+
   void _subscribeToMessages(String ticketId) {
     _unsubscribeRealtime();
+    _pollTimer?.cancel();
+
+    // Subscribe WITHOUT a row filter — filter client-side.
+    // Row-level filters in postgres_changes require the subscriber's JWT
+    // to have RLS SELECT access to those specific rows, which is unreliable.
+    // We subscribe to ALL ticket_message INSERTs and filter here.
     _realtimeChannel = SupabaseService.client
-        .channel('ticket-messages-$ticketId')
+        .channel('support-msgs-${ticketId}-${DateTime.now().millisecondsSinceEpoch}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'ticket_messages',
-          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'ticket_id', value: ticketId),
           callback: (payload) {
             final newMsg = payload.newRecord;
+            // Filter client-side for this ticket only
+            if (newMsg['ticket_id'] != ticketId) return;
             if (!mounted) return;
             setState(() {
               final alreadyExists = _messages.any((m) => m['id'] == newMsg['id']);
@@ -62,9 +74,9 @@ class _SupportScreenState extends State<SupportScreen> {
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'support_tickets',
-          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: ticketId),
           callback: (payload) {
             final newStatus = payload.newRecord['status']?.toString() ?? '';
+            if (payload.newRecord['id'] != ticketId) return;
             final wasResolved = _selected?['status'] != 'resolved';
             if (newStatus == 'resolved' && wasResolved && mounted) {
               setState(() {
@@ -76,6 +88,16 @@ class _SupportScreenState extends State<SupportScreen> {
           },
         )
         .subscribe();
+
+    // Polling fallback — refresh messages every 5 seconds
+    // in case Realtime misses events (network issues, etc.)
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted || _selected == null) return;
+      try {
+        final msgs = await SupabaseService.getTicketMessages(ticketId);
+        if (mounted) setState(() => _messages = msgs);
+      } catch (_) {}
+    });
   }
 
   Future<void> _loadTickets() async {

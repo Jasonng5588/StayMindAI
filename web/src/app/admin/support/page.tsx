@@ -39,7 +39,10 @@ export default function AdminSupportPage() {
     useEffect(() => { fetchTickets() }, [])
     useEffect(() => { scrollToBottom() }, [messages])
 
-    // Subscribe to realtime messages when a ticket is selected
+    // Subscribe to realtime messages — NO row filter (filter client-side)
+    // Row filters require the subscriber JWT to have RLS SELECT on those rows.
+    // Admin user JWT may not have ticket_messages access, so we subscribe to ALL
+    // and filter in the callback. Polling is a fallback for when Realtime fails.
     useEffect(() => {
         if (channelRef.current) {
             supabase.removeChannel(channelRef.current as any)
@@ -47,22 +50,17 @@ export default function AdminSupportPage() {
         }
         if (!selected) return
 
-        // Load messages for selected ticket
         loadMessages(selected.id)
 
-        // Subscribe to new messages on this ticket
         const channel = supabase
-            .channel(`ticket-messages-admin-${selected.id}`)
+            .channel(`admin-support-${selected.id}-${Date.now()}`)
             .on(
                 'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'ticket_messages',
-                    filter: `ticket_id=eq.${selected.id}`,
-                },
+                { event: 'INSERT', schema: 'public', table: 'ticket_messages' },
                 (payload) => {
                     const newMsg = payload.new as Record<string, unknown>
+                    // Filter client-side for the selected ticket
+                    if (newMsg.ticket_id !== selected.id) return
                     const msg: Message = {
                         id: newMsg.id as string,
                         role: newMsg.role as 'guest' | 'admin',
@@ -70,21 +68,30 @@ export default function AdminSupportPage() {
                         time: new Date(newMsg.created_at as string).toLocaleString(),
                     }
                     setMessages(prev => {
-                        // Deduplicate
                         if (prev.some(m => m.id === msg.id)) return prev
                         return [...prev, msg]
                     })
                     scrollToBottom()
                 }
             )
-            .subscribe()
+            .subscribe((status, err) => {
+                if (err) console.error('[AdminSupport RT] error:', err)
+                else console.log('[AdminSupport RT] status:', status)
+            })
 
         channelRef.current = channel as any
+
+        // Polling fallback — refresh messages every 5 seconds in case Realtime misses
+        const pollInterval = setInterval(() => {
+            if (selected?.id) loadMessages(selected.id)
+        }, 5000)
 
         return () => {
             supabase.removeChannel(channel)
             channelRef.current = null
+            clearInterval(pollInterval)
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selected?.id])
 
     const loadMessages = async (ticketId: string) => {
