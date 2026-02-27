@@ -26,11 +26,16 @@ export async function POST(request: Request) {
             .select()
             .single()
 
-        if (error) throw error
+        if (error) {
+            console.error('[admin/vouchers POST] Supabase error:', error)
+            return NextResponse.json({ error: error.message || error.details || error.hint || 'DB insert failed' }, { status: 500 })
+        }
 
         return NextResponse.json({ voucher: data }, { status: 201 })
     } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to send voucher'
+        const raw = err as Record<string, unknown>
+        const msg = raw?.message as string || raw?.error_description as string || 'Failed to send voucher'
+        console.error('[admin/vouchers POST] catch error:', err)
         return NextResponse.json({ error: msg }, { status: 500 })
     }
 }

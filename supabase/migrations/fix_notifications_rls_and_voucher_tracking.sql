@@ -52,12 +52,18 @@ BEGIN
   -- If booking has a voucher_code, mark the user_voucher as used
   IF NEW.voucher_code IS NOT NULL AND NEW.voucher_code != '' THEN
     -- Try to mark personal user_voucher as used
+    -- Try to mark the first matching unused personal user_voucher as used
+    -- PostgreSQL doesn't allow LIMIT in UPDATE, use subquery instead
     UPDATE user_vouchers
     SET is_used = true, used_at = now(), booking_id = NEW.id
-    WHERE user_id = NEW.user_id
-      AND code = NEW.voucher_code
-      AND is_used = false
-    LIMIT 1;
+    WHERE id = (
+      SELECT id FROM user_vouchers
+      WHERE user_id = NEW.user_id
+        AND code = NEW.voucher_code
+        AND is_used = false
+      ORDER BY created_at DESC
+      LIMIT 1
+    );
 
     -- Increment promo_codes used_count
     UPDATE promo_codes
