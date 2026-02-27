@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/supabase_service.dart';
 
 class LoyaltyScreen extends StatefulWidget {
@@ -10,7 +11,6 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   bool _loading = true;
   int _totalPoints = 0;
   List<Map<String, dynamic>> _tiers = [];
-  List<Map<String, dynamic>> _rewards = [];
   List<Map<String, dynamic>> _history = [];
   String _currentTier = 'Bronze';
 
@@ -23,7 +23,6 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
       final results = await Future.wait([
         SupabaseService.getLoyaltyPoints(),
         SupabaseService.getLoyaltyTiers(),
-        SupabaseService.getLoyaltyRewards(),
       ]);
 
       final points = results[0] as List<Map<String, dynamic>>;
@@ -39,7 +38,6 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
         _totalPoints = total;
         _history = points;
         _tiers = tiers;
-        _rewards = results[2] as List<Map<String, dynamic>>;
         _currentTier = tier;
         _loading = false;
       });
@@ -62,87 +60,6 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
     _ => Icons.shield,
   };
 
-  Future<void> _redeemReward(Map<String, dynamic> reward) async {
-    final name = reward['name'] ?? 'Reward';
-    final cost = ((reward['points_cost'] ?? 0) as num).toInt();
-    final id = reward['id']?.toString() ?? '';
-
-    if (_totalPoints < cost) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Not enough points! You need $cost but have $_totalPoints.'), backgroundColor: Colors.red.shade600, behavior: SnackBarBehavior.floating),
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.card_giftcard, color: cs.primary, size: 20),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(child: Text('Redeem Reward', style: TextStyle(fontSize: 17))),
-          ]),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: cs.surfaceVariant.withOpacity(0.3), borderRadius: BorderRadius.circular(14)),
-              child: Column(children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center),
-                const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.star, size: 18, color: Colors.amber.shade600),
-                  const SizedBox(width: 4),
-                  Text('$cost points', style: TextStyle(fontWeight: FontWeight.w600, color: cs.primary)),
-                ]),
-              ]),
-            ),
-            const SizedBox(height: 12),
-            Text('You have $_totalPoints points. After redemption, you\'ll have ${_totalPoints - cost} points.', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant), textAlign: TextAlign.center),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Redeem')),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) return;
-
-    // Actually perform redemption
-    final success = await SupabaseService.redeemReward(id, name, cost);
-
-    if (mounted) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text('Redeemed "$name" for $cost points!'))]),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-        _loadData(); // Refresh
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(children: [Icon(Icons.error, color: Colors.white), SizedBox(width: 8), Text('Redemption failed. Please try again.')]),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +126,18 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                         ]);
                       }),
                     ],
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => context.push('/profile/rewards'),
+                      icon: const Icon(Icons.card_giftcard, size: 18),
+                      label: const Text('My Rewards'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: _tierColor(_currentTier),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      ),
+                    ),
                   ]),
                 ),
                 const SizedBox(height: 24),
@@ -249,69 +178,6 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                   const SizedBox(height: 24),
                 ],
 
-                // Rewards
-                if (_rewards.isNotEmpty) ...[
-                  const Text('Available Rewards', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  ..._rewards.map((r) {
-                    final cost = ((r['points_cost'] ?? 0) as num).toInt();
-                    final canRedeem = _totalPoints >= cost;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: cs.outlineVariant.withOpacity(0.5)),
-                        color: cs.surface,
-                      ),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: canRedeem ? cs.primaryContainer : cs.surfaceVariant,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(Icons.card_giftcard, color: canRedeem ? cs.primary : cs.onSurfaceVariant, size: 22),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r['name'] ?? 'Reward', style: const TextStyle(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text(r['description'] ?? '', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        ])),
-                        const SizedBox(width: 10),
-                        Column(children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: canRedeem ? cs.primary.withOpacity(0.1) : cs.surfaceVariant,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.star, size: 14, color: canRedeem ? cs.primary : cs.onSurfaceVariant),
-                              const SizedBox(width: 2),
-                              Text('$cost', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: canRedeem ? cs.primary : cs.onSurfaceVariant)),
-                            ]),
-                          ),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            height: 32,
-                            child: FilledButton(
-                              onPressed: canRedeem ? () => _redeemReward(r) : null,
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 14),
-                                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                              child: const Text('Redeem'),
-                            ),
-                          ),
-                        ]),
-                      ]),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                ],
-
                 // History
                 if (_history.isNotEmpty) ...[
                   const Text('Points History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -346,7 +212,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                   }),
                 ],
 
-                if (_tiers.isEmpty && _rewards.isEmpty && _history.isEmpty)
+                if (_tiers.isEmpty && _history.isEmpty)
                   Center(child: Padding(
                     padding: const EdgeInsets.all(48),
                     child: Column(children: [

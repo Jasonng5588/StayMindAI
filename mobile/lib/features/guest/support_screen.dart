@@ -47,20 +47,32 @@ class _SupportScreenState extends State<SupportScreen> {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'ticket_messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'ticket_id',
-            value: ticketId,
-          ),
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'ticket_id', value: ticketId),
           callback: (payload) {
             final newMsg = payload.newRecord;
             if (!mounted) return;
             setState(() {
-              // Deduplicate by id
               final alreadyExists = _messages.any((m) => m['id'] == newMsg['id']);
               if (!alreadyExists) _messages = [..._messages, newMsg];
             });
             _scrollToBottom();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'support_tickets',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: ticketId),
+          callback: (payload) {
+            final newStatus = payload.newRecord['status']?.toString() ?? '';
+            final wasResolved = _selected?['status'] != 'resolved';
+            if (newStatus == 'resolved' && wasResolved && mounted) {
+              setState(() {
+                _selected = {...?_selected, 'status': 'resolved'};
+                _tickets = _tickets.map((t) => t['id'] == ticketId ? {...t, 'status': 'resolved'} : t).toList();
+              });
+              Future.delayed(const Duration(milliseconds: 800), () { if (mounted) _showReviewDialog(); });
+            }
           },
         )
         .subscribe();
@@ -74,14 +86,68 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Future<void> _selectTicket(Map<String, dynamic> ticket) async {
     setState(() { _selected = ticket; _messages = []; });
-    // Load existing messages
     try {
       final msgs = await SupabaseService.getTicketMessages(ticket['id']);
       if (mounted) setState(() => _messages = msgs);
       _scrollToBottom();
     } catch (_) {}
-    // Subscribe to new messages in real-time
     _subscribeToMessages(ticket['id']);
+  }
+
+  void _showReviewDialog() {
+    int rating = 0;
+    final commentC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.check_circle, color: Colors.green, size: 36),
+            ),
+            const SizedBox(height: 16),
+            const Text('Ticket Resolved!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('How was your support experience?', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant), textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) {
+              final n = i + 1;
+              return GestureDetector(
+                onTap: () => setDialogState(() => rating = n),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(Icons.star, size: 36, color: n <= rating ? Colors.amber.shade600 : Colors.grey.shade300),
+                ),
+              );
+            })),
+            const SizedBox(height: 14),
+            TextField(
+              controller: commentC,
+              maxLines: 2,
+              decoration: InputDecoration(hintText: 'Any additional feedback? (optional)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.all(12)),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () { commentC.dispose(); Navigator.pop(ctx); }, child: const Text('Skip')),
+            FilledButton(
+              onPressed: rating < 1 ? null : () async {
+                Navigator.pop(ctx);
+                // Non-critical: submit support rating
+                try {
+                  await SupabaseService.client.from('support_tickets').update({'rating': rating}).eq('id', _selected?['id'] ?? '');
+                } catch (_) {}
+                commentC.dispose();
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      }),
+    );
   }
 
   Future<void> _sendReply() async {

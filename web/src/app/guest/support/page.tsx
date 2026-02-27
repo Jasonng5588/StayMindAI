@@ -1,13 +1,14 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { LifeBuoy, Send, Plus, X, Clock, CheckCircle2, MessageCircle, Loader2 } from 'lucide-react'
+import { LifeBuoy, Send, Plus, X, Clock, CheckCircle2, MessageCircle, Loader2, Star } from 'lucide-react'
 
-interface Message { role: 'guest' | 'admin'; text: string; time: string }
+interface Message { id: string; role: 'guest' | 'admin'; text: string; time: string }
 interface Ticket {
     id: string; subject: string; description: string; category: string
     priority: string; status: string; created_at: string; messages: Message[]
@@ -19,13 +20,78 @@ export default function GuestSupportPage() {
     const [tickets, setTickets] = useState<Ticket[]>([])
     const [loading, setLoading] = useState(true)
     const [selected, setSelected] = useState<Ticket | null>(null)
+    const [messages, setMessages] = useState<Message[]>([])
     const [replyText, setReplyText] = useState('')
     const [sending, setSending] = useState(false)
     const [showNew, setShowNew] = useState(false)
     const [newForm, setNewForm] = useState({ subject: '', description: '', category: 'General', priority: 'medium' })
     const [creating, setCreating] = useState(false)
+    // Review state (shown when ticket resolves)
+    const [pendingReview, setPendingReview] = useState<Ticket | null>(null)
+    const [reviewRating, setReviewRating] = useState(0)
+    const [reviewText, setReviewText] = useState('')
+    const [submittingReview, setSubmittingReview] = useState(false)
+    const messagesEndRef = useRef<HTMLDivElement>(null)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const channelRef = useRef<any>(null)
+    const supabase = useMemo(() => createClient(), [])
+
+    const scrollToBottom = () => setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
 
     useEffect(() => { fetchTickets() }, [])
+    useEffect(() => { scrollToBottom() }, [messages])
+
+    // Subscribe to Realtime when a ticket is selected
+    useEffect(() => {
+        if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
+        if (!selected) return
+
+        loadMessages(selected.id)
+
+        const channel = supabase
+            .channel(`guest-ticket-${selected.id}`)
+            .on('postgres_changes', {
+                event: 'INSERT', schema: 'public', table: 'ticket_messages',
+                filter: `ticket_id=eq.${selected.id}`,
+            }, (payload: { new: Record<string, unknown> }) => {
+                const m = payload.new
+                const msg: Message = { id: m.id as string, role: m.role as 'guest' | 'admin', text: m.message as string, time: new Date(m.created_at as string).toLocaleString() }
+                setMessages(prev => prev.some(x => x.id === msg.id) ? prev : [...prev, msg])
+                scrollToBottom()
+            })
+            // Also listen for ticket status changes (to trigger review prompt)
+            .on('postgres_changes', {
+                event: 'UPDATE', schema: 'public', table: 'support_tickets',
+                filter: `id=eq.${selected.id}`,
+            }, (payload: { new: Record<string, unknown> }) => {
+                const newStatus = payload.new.status as string
+                if (newStatus === 'resolved' && selected.status !== 'resolved') {
+                    // Update ticket status in state
+                    setSelected(prev => prev ? { ...prev, status: 'resolved' } : null)
+                    setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, status: 'resolved' } : t))
+                    // Show review prompt!
+                    setTimeout(() => setPendingReview({ ...selected, status: 'resolved' }), 800)
+                }
+            })
+            .subscribe()
+
+        channelRef.current = channel
+        return () => { supabase.removeChannel(channel); channelRef.current = null }
+    }, [selected?.id])
+
+    const loadMessages = async (ticketId: string) => {
+        try {
+            const res = await fetch(`/api/support/messages?ticket_id=${ticketId}`)
+            if (res.ok) {
+                const { messages: msgs } = await res.json()
+                setMessages((msgs || []).map((m: Record<string, unknown>) => ({
+                    id: m.id as string, role: m.role as 'guest' | 'admin',
+                    text: m.message as string, time: new Date(m.created_at as string).toLocaleString(),
+                })))
+            }
+        } catch { /* ignore */ }
+        scrollToBottom()
+    }
 
     const fetchTickets = async () => {
         setLoading(true)
@@ -33,85 +99,96 @@ export default function GuestSupportPage() {
             const res = await fetch('/api/support')
             if (!res.ok) { setLoading(false); return }
             const { tickets: data } = await res.json()
-
-            if (data && data.length > 0) {
-                const mapped: Ticket[] = await Promise.all(data.map(async (t: Record<string, unknown>) => {
-                    let messages: Message[] = []
-                    try {
-                        const msgRes = await fetch(`/api/support/messages?ticket_id=${t.id}`)
-                        if (msgRes.ok) {
-                            const { messages: msgs } = await msgRes.json()
-                            messages = (msgs || []).map((m: Record<string, unknown>) => ({
-                                role: m.role as 'guest' | 'admin',
-                                text: m.message as string,
-                                time: new Date(m.created_at as string).toLocaleString(),
-                            }))
-                        }
-                    } catch { /* ignore message fetch errors */ }
-
-                    return {
-                        id: t.id as string,
-                        subject: t.subject as string,
-                        description: t.description as string,
-                        category: (t.category as string) || 'General',
-                        priority: t.priority as string,
-                        status: t.status as string,
-                        created_at: t.created_at as string,
-                        messages,
-                    }
+            if (data) {
+                const mapped: Ticket[] = (data as Record<string, unknown>[]).map((t) => ({
+                    id: t.id as string, subject: t.subject as string, description: t.description as string,
+                    category: (t.category as string) || 'General', priority: t.priority as string,
+                    status: t.status as string, created_at: t.created_at as string, messages: [],
                 }))
                 setTickets(mapped)
-            } else {
-                setTickets([])
             }
         } catch (err) { console.error(err) }
         setLoading(false)
     }
 
+    const selectTicket = (t: Ticket) => { setSelected(t); setMessages([]) }
+
     const createTicket = async () => {
         if (!newForm.subject.trim() || !newForm.description.trim()) return
         setCreating(true)
         try {
-            const res = await fetch('/api/support', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newForm)
-            })
-            if (res.ok) {
-                setShowNew(false)
-                setNewForm({ subject: '', description: '', category: 'General', priority: 'medium' })
-                fetchTickets()
-            }
+            const res = await fetch('/api/support', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newForm) })
+            if (res.ok) { setShowNew(false); setNewForm({ subject: '', description: '', category: 'General', priority: 'medium' }); fetchTickets() }
         } catch (err) { console.error(err) }
         setCreating(false)
     }
 
     const sendReply = async () => {
         if (!replyText.trim() || !selected) return
-        setSending(true)
-        try {
-            const res = await fetch('/api/support/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ticket_id: selected.id, message: replyText, role: 'guest' })
-            })
-            if (res.ok) {
-                const newMsg: Message = { role: 'guest', text: replyText, time: new Date().toLocaleString() }
-                const updated = { ...selected, messages: [...selected.messages, newMsg] }
-                setSelected(updated)
-                setTickets(prev => prev.map(t => t.id === selected.id ? updated : t))
-            }
-        } catch (err) { console.error(err) }
+        const text = replyText.trim()
         setReplyText('')
+        // Optimistic update
+        const optimistic: Message = { id: `opt-${Date.now()}`, role: 'guest', text, time: new Date().toLocaleString() }
+        setMessages(prev => [...prev, optimistic])
+        scrollToBottom()
+        try {
+            await fetch('/api/support/messages', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticket_id: selected.id, message: text, role: 'guest' })
+            })
+        } catch (err) { console.error(err) }
         setSending(false)
     }
 
-    if (loading) {
-        return <div className="flex items-center justify-center h-64 animate-fade-in"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-3 text-muted-foreground">Loading tickets...</span></div>
+    const submitSupportReview = async () => {
+        if (reviewRating < 1) return
+        setSubmittingReview(true)
+        try {
+            await fetch('/api/support', {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticket_id: pendingReview?.id, rating: reviewRating, review_text: reviewText })
+            })
+        } catch { /* non-critical */ }
+        setPendingReview(null); setReviewRating(0); setReviewText('')
+        setSubmittingReview(false)
     }
+
+    if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-3 text-muted-foreground">Loading tickets...</span></div>
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {/* Review Modal */}
+            {pendingReview && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-md">
+                        <CardContent className="p-6">
+                            <div className="text-center mb-4">
+                                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                                </div>
+                                <h2 className="text-xl font-bold">Ticket Resolved!</h2>
+                                <p className="text-muted-foreground text-sm mt-1">How was your support experience?</p>
+                            </div>
+                            <p className="text-sm font-medium text-center mb-2">Rate your experience</p>
+                            <div className="flex justify-center gap-2 mb-4">
+                                {[1, 2, 3, 4, 5].map(n => (
+                                    <button key={n} onClick={() => setReviewRating(n)} className="transition-transform hover:scale-110">
+                                        <Star className={`h-8 w-8 ${n <= reviewRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                                    </button>
+                                ))}
+                            </div>
+                            <textarea className="w-full p-3 rounded-lg border text-sm resize-none min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Tell us about your experience (optional)..." value={reviewText} onChange={e => setReviewText(e.target.value)} />
+                            <div className="flex gap-3 mt-4">
+                                <Button variant="outline" className="flex-1" onClick={() => setPendingReview(null)}>Skip</Button>
+                                <Button className="flex-1" disabled={reviewRating < 1 || submittingReview} onClick={submitSupportReview}>
+                                    {submittingReview ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Submit Review
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-red-500/10"><LifeBuoy className="h-5 w-5 text-red-600" /></div>
@@ -158,16 +235,15 @@ export default function GuestSupportPage() {
                             <p className="text-sm text-muted-foreground">Create a ticket to get help</p>
                         </CardContent></Card>
                     ) : tickets.map(t => (
-                        <Card key={t.id} className={`cursor-pointer hover:shadow-md transition-all ${selected?.id === t.id ? 'ring-2 ring-primary' : ''}`} onClick={() => setSelected(t)}>
+                        <Card key={t.id} className={`cursor-pointer hover:shadow-md transition-all ${selected?.id === t.id ? 'ring-2 ring-primary' : ''}`} onClick={() => selectTicket(t)}>
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <Badge variant={statusColors[t.status] as 'destructive' | 'warning' | 'success' | 'secondary'} className="text-[10px]">{t.status.replace('_', ' ')}</Badge>
+                                    <Badge variant={statusColors[t.status] as any} className="text-[10px]">{t.status.replace('_', ' ')}</Badge>
                                     <span className="text-xs text-muted-foreground">{t.category}</span>
                                 </div>
                                 <p className="font-semibold text-sm">{t.subject}</p>
                                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                     <Clock className="h-3 w-3" />{new Date(t.created_at).toLocaleDateString()}
-                                    <MessageCircle className="h-3 w-3 ml-1" />{t.messages.length}
                                 </div>
                             </CardContent>
                         </Card>
@@ -180,28 +256,33 @@ export default function GuestSupportPage() {
                         <Card className="h-full flex items-center justify-center"><CardContent className="text-center p-8">
                             <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                             <p className="text-muted-foreground">Select a ticket to view conversation</p>
+                            <p className="text-xs text-muted-foreground mt-1">Messages update in real-time</p>
                         </CardContent></Card>
                     ) : (
-                        <Card className="h-full flex flex-col">
-                            <CardContent className="p-4 border-b">
+                        <Card className="flex flex-col h-full">
+                            <CardContent className="p-4 border-b flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h3 className="font-semibold">{selected.subject}</h3>
                                         <p className="text-sm text-muted-foreground">{selected.category} • {selected.priority} priority</p>
                                     </div>
-                                    <Badge variant={statusColors[selected.status] as 'destructive' | 'warning' | 'success' | 'secondary'}>{selected.status.replace('_', ' ')}</Badge>
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center gap-1 text-xs text-emerald-500">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />Live
+                                        </span>
+                                        <Badge variant={statusColors[selected.status] as any}>{selected.status.replace('_', ' ')}</Badge>
+                                    </div>
                                 </div>
                             </CardContent>
 
                             <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[350px]">
-                                {/* Initial description */}
                                 <div className="p-3 rounded-lg bg-muted text-sm">
                                     <p className="font-medium text-xs mb-1">You</p>
                                     <p>{selected.description}</p>
                                     <p className="text-[10px] text-muted-foreground mt-1">{new Date(selected.created_at).toLocaleString()}</p>
                                 </div>
-                                {selected.messages.map((m, i) => (
-                                    <div key={i} className={`flex ${m.role === 'guest' ? 'justify-end' : 'justify-start'}`}>
+                                {messages.map((m) => (
+                                    <div key={m.id} className={`flex ${m.role === 'guest' ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[80%] p-3 rounded-lg text-sm ${m.role === 'guest' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                                             <p className="font-medium text-xs mb-1">{m.role === 'guest' ? 'You' : 'Support Agent'}</p>
                                             <p>{m.text}</p>
@@ -209,12 +290,13 @@ export default function GuestSupportPage() {
                                         </div>
                                     </div>
                                 ))}
+                                <div ref={messagesEndRef} />
                             </div>
 
                             {selected.status !== 'resolved' && selected.status !== 'closed' && (
-                                <div className="p-4 border-t">
+                                <div className="p-4 border-t flex-shrink-0">
                                     <div className="flex gap-2">
-                                        <Input placeholder="Type a message..." value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendReply()} />
+                                        <Input placeholder="Type a message..." value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()} />
                                         <Button onClick={sendReply} disabled={!replyText.trim() || sending}>
                                             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                                         </Button>
@@ -222,7 +304,7 @@ export default function GuestSupportPage() {
                                 </div>
                             )}
                             {(selected.status === 'resolved' || selected.status === 'closed') && (
-                                <div className="p-4 border-t text-center text-sm text-muted-foreground">
+                                <div className="p-4 border-t text-center text-sm text-muted-foreground flex-shrink-0">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
                                     This ticket has been {selected.status}
                                 </div>

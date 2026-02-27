@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,8 +29,10 @@ export default function AdminSupportPage() {
     const [statusFilter, setStatusFilter] = useState('all')
     const [sending, setSending] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
-    const channelRef = useRef<ReturnType<typeof createClient>['channel'] extends (name: string) => infer R ? R : never | null>(null)
-    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const channelRef = useRef<any>(null)
+    // Memoize supabase client — MUST not recreate on every render or Realtime breaks
+    const supabase = useMemo(() => createClient(), [])
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
