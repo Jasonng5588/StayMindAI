@@ -28,6 +28,7 @@ import '../features/staff/guest_chat_screen.dart';
 import '../features/staff/manual_booking_screen.dart';
 import '../features/staff/qr_scanner_screen.dart';
 import '../features/staff/staff_shell.dart';
+import 'animations.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _guestShellKey = GlobalKey<NavigatorState>();
@@ -49,24 +50,45 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      // Auth routes
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+      // Auth routes — slide in from right
+      GoRoute(
+        path: '/login',
+        pageBuilder: (_, state) => AppPageTransitions.slideRight(
+          key: state.pageKey, child: const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (_, state) => AppPageTransitions.slideRight(
+          key: state.pageKey, child: const RegisterScreen()),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        pageBuilder: (_, state) => AppPageTransitions.slideRight(
+          key: state.pageKey, child: const ForgotPasswordScreen()),
+      ),
 
       // Guest shell with bottom nav (5 tabs)
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) => GuestShell(navigationShell: navigationShell),
         branches: [
-          // Tab 0: Home (single hotel dashboard)
+          // Tab 0: Home
           StatefulShellBranch(navigatorKey: _guestShellKey, routes: [
             GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
           ]),
-          // Tab 1: Book Room (browse rooms)
+          // Tab 1: Book Room
           StatefulShellBranch(routes: [
-            GoRoute(path: '/rooms', builder: (_, __) => const RoomsScreen(), routes: [
-              GoRoute(path: 'book', builder: (_, state) => BookingFlowScreen(roomData: state.extra as Map<String, dynamic>?)),
-            ]),
+            GoRoute(
+              path: '/rooms',
+              builder: (_, __) => const RoomsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'book',
+                  pageBuilder: (_, state) => AppPageTransitions.fadeScale(
+                    key: state.pageKey,
+                    child: BookingFlowScreen(roomData: state.extra as Map<String, dynamic>?)),
+                ),
+              ],
+            ),
           ]),
           // Tab 2: My Bookings
           StatefulShellBranch(routes: [
@@ -76,17 +98,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(path: '/chat', builder: (_, __) => const ChatScreen()),
           ]),
-          // Tab 4: Profile
+          // Tab 4: Profile + sub-pages (slide up)
           StatefulShellBranch(routes: [
-            GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen(), routes: [
-              GoRoute(path: 'edit', builder: (_, __) => const EditProfileScreen()),
-              GoRoute(path: 'reviews', builder: (_, __) => const ReviewsScreen()),
-              GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
-              GoRoute(path: 'loyalty', builder: (_, __) => const LoyaltyScreen()),
-              GoRoute(path: 'rewards', builder: (_, __) => const MyRewardScreen()),
-              GoRoute(path: 'support', builder: (_, __) => const SupportScreen()),
-              GoRoute(path: 'vouchers', builder: (_, __) => const VouchersScreen()),
-            ]),
+            GoRoute(
+              path: '/profile',
+              builder: (_, __) => const ProfileScreen(),
+              routes: [
+                GoRoute(path: 'edit', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const EditProfileScreen())),
+                GoRoute(path: 'reviews', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const ReviewsScreen())),
+                GoRoute(path: 'notifications', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const NotificationsScreen())),
+                GoRoute(path: 'loyalty', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const LoyaltyScreen())),
+                GoRoute(path: 'rewards', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const MyRewardScreen())),
+                GoRoute(path: 'support', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const SupportScreen())),
+                GoRoute(path: 'vouchers', pageBuilder: (_, state) => AppPageTransitions.slideUp(
+                  key: state.pageKey, child: const VouchersScreen())),
+              ],
+            ),
           ]),
         ],
       ),
@@ -110,11 +143,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // Standalone staff routes
-      GoRoute(path: '/staff/chat', builder: (_, __) => const GuestChatScreen()),
-      GoRoute(path: '/staff/booking', builder: (_, __) => const ManualBookingScreen()),
-      GoRoute(path: '/staff/qr', builder: (_, __) => const QrScannerScreen()),
+      // Standalone staff routes — slide + fade
+      GoRoute(path: '/staff/chat', pageBuilder: (_, state) => AppPageTransitions.slideRight(
+        key: state.pageKey, child: const GuestChatScreen())),
+      GoRoute(path: '/staff/booking', pageBuilder: (_, state) => AppPageTransitions.fadeScale(
+        key: state.pageKey, child: const ManualBookingScreen())),
+      GoRoute(path: '/staff/qr', pageBuilder: (_, state) => AppPageTransitions.fadeScale(
+        key: state.pageKey, child: const QrScannerScreen())),
     ],
   );
 });
-

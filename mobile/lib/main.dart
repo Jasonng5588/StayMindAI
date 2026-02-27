@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'core/app_resume_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,14 +24,15 @@ class StayMindApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final isDark = ref.watch(themeProvider);
 
-    return MaterialApp.router(
-      title: 'StayMind AI',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-      routerConfig: router,
+    return AppResumeWrapper(
+      child: MaterialApp.router(
+        title: 'StayMind AI',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+        routerConfig: router,
+      ),
     );
   }
 }
-
