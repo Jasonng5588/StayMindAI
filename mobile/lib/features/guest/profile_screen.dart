@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/supabase_service.dart';
 import '../../core/theme.dart';
+import '../../core/animations.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -53,65 +54,70 @@ class ProfileScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Column(children: [
               // Account section
-              _SectionHeader(title: 'Account'),
-              _ProfileTile(icon: Icons.person_outline, iconColor: const Color(0xFF3B82F6), title: 'Edit Profile', onTap: () => context.push('/profile/edit')),
-              _ProfileTile(icon: Icons.notifications_outlined, iconColor: const Color(0xFFF59E0B), title: 'Notifications', onTap: () => context.push('/profile/notifications')),
-              _ProfileTile(
+              AnimatedEntrance(delayMs: 100, child: _SectionHeader(title: 'Account')),
+              AnimatedEntrance(delayMs: 150, child: TapBounce(child: _ProfileTile(icon: Icons.person_outline, iconColor: const Color(0xFF3B82F6), title: 'Edit Profile', onTap: () => context.push('/profile/edit')))),
+              AnimatedEntrance(delayMs: 200, child: TapBounce(child: _ProfileTile(icon: Icons.notifications_outlined, iconColor: const Color(0xFFF59E0B), title: 'Notifications', onTap: () => context.push('/profile/notifications')))),
+              AnimatedEntrance(delayMs: 250, child: TapBounce(child: _ProfileTile(
                 icon: isDark ? Icons.dark_mode : Icons.light_mode,
                 iconColor: const Color(0xFF8B5CF6),
                 title: 'Dark Mode',
                 trailing: Switch.adaptive(value: isDark, onChanged: (_) => ref.read(themeProvider.notifier).toggle()),
                 onTap: () => ref.read(themeProvider.notifier).toggle(),
-              ),
+              ))),
               const SizedBox(height: 16),
 
               // Activity section
-              _SectionHeader(title: 'Activity'),
-              _ProfileTile(icon: Icons.calendar_today, iconColor: const Color(0xFF0EA5E9), title: 'My Bookings', onTap: () => context.go('/bookings')),
-              _ProfileTile(icon: Icons.rate_review_outlined, iconColor: const Color(0xFFF97316), title: 'My Reviews', onTap: () => context.push('/profile/reviews')),
-              _ProfileTile(icon: Icons.loyalty, iconColor: const Color(0xFFD4A853), title: 'Loyalty Program', onTap: () => context.push('/profile/loyalty')),
-              _ProfileTile(icon: Icons.card_giftcard, iconColor: const Color(0xFF7C3AED), title: 'My Rewards', onTap: () => context.push('/profile/rewards')),
-              _ProfileTile(icon: Icons.local_offer, iconColor: const Color(0xFFEF4444), title: 'My Vouchers', onTap: () => context.push('/profile/vouchers')),
+              AnimatedEntrance(delayMs: 300, child: _SectionHeader(title: 'Activity')),
+              AnimatedEntrance(delayMs: 350, child: TapBounce(child: _ProfileTile(icon: Icons.calendar_today, iconColor: const Color(0xFF0EA5E9), title: 'My Bookings', onTap: () => context.go('/bookings')))),
+              AnimatedEntrance(delayMs: 400, child: TapBounce(child: _ProfileTile(icon: Icons.rate_review_outlined, iconColor: const Color(0xFFF97316), title: 'My Reviews', onTap: () => context.push('/profile/reviews')))),
+              AnimatedEntrance(delayMs: 450, child: TapBounce(child: _ProfileTile(icon: Icons.loyalty, iconColor: const Color(0xFFD4A853), title: 'Loyalty Program', onTap: () => context.push('/profile/loyalty')))),
+              AnimatedEntrance(delayMs: 500, child: TapBounce(child: _ProfileTile(icon: Icons.card_giftcard, iconColor: const Color(0xFF7C3AED), title: 'My Rewards', onTap: () => context.push('/profile/rewards')))),
+              AnimatedEntrance(delayMs: 550, child: TapBounce(child: _ProfileTile(icon: Icons.local_offer, iconColor: const Color(0xFFEF4444), title: 'My Vouchers', onTap: () => context.push('/profile/vouchers')))),
               const SizedBox(height: 16),
 
               // Help section
-              _SectionHeader(title: 'Help & Support'),
-              _ProfileTile(icon: Icons.support_agent, iconColor: const Color(0xFF22C55E), title: 'Support Tickets', onTap: () => context.push('/profile/support')),
-              _ProfileTile(icon: Icons.smart_toy, iconColor: const Color(0xFF7C3AED), title: 'AI Concierge', onTap: () => context.go('/chat')),
-              _ProfileTile(icon: Icons.info_outline, iconColor: const Color(0xFF6B7280), title: 'About StayMind', onTap: () {
+              AnimatedEntrance(delayMs: 600, child: _SectionHeader(title: 'Help & Support')),
+              AnimatedEntrance(delayMs: 650, child: TapBounce(child: _ProfileTile(icon: Icons.support_agent, iconColor: const Color(0xFF22C55E), title: 'Support Tickets', onTap: () => context.push('/profile/support')))),
+              AnimatedEntrance(delayMs: 700, child: TapBounce(child: _ProfileTile(icon: Icons.smart_toy, iconColor: const Color(0xFF7C3AED), title: 'AI Concierge', onTap: () => context.go('/chat')))),
+              AnimatedEntrance(delayMs: 750, child: TapBounce(child: _ProfileTile(icon: Icons.info_outline, iconColor: const Color(0xFF6B7280), title: 'About StayMind', onTap: () {
                 showAboutDialog(
                   context: context,
                   applicationName: 'StayMind AI',
                   applicationVersion: '1.0.0',
                   applicationLegalese: '\u00A9 2024 StayMind AI. All rights reserved.',
                 );
-              }),
+              }))),
               const SizedBox(height: 24),
 
               // Sign out
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      title: const Text('Sign Out'),
-                      content: const Text('Are you sure you want to sign out?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                        FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: cs.error), child: const Text('Sign Out')),
-                      ],
-                    ));
-                    if (confirmed == true) {
-                      await SupabaseService.signOut();
-                      if (context.mounted) context.go('/login');
-                    }
-                  },
-                  icon: Icon(Icons.logout, color: cs.error),
-                  label: Text('Sign Out', style: TextStyle(color: cs.error)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: cs.error.withOpacity(0.5)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+              AnimatedEntrance(
+                delayMs: 800,
+                child: TapBounce(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          title: const Text('Sign Out'),
+                          content: const Text('Are you sure you want to sign out?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: cs.error), child: const Text('Sign Out')),
+                          ],
+                        ));
+                        if (confirmed == true) {
+                          await SupabaseService.signOut();
+                          if (context.mounted) context.go('/login');
+                        }
+                      },
+                      icon: Icon(Icons.logout, color: cs.error),
+                      label: Text('Sign Out', style: TextStyle(color: cs.error)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: cs.error.withOpacity(0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
                   ),
                 ),
               ),

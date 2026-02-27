@@ -2,6 +2,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
+import '../../core/animations.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -184,33 +185,43 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Quick Stats
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(children: [
-                Expanded(child: _StatCard(
-                  icon: Icons.calendar_today,
-                  label: 'Active Bookings',
-                  value: '$_bookingsCount',
-                  color: const Color(0xFF3B82F6),
-                  onTap: () => context.go('/bookings'),
-                )),
-                const SizedBox(width: 10),
-                Expanded(child: _StatCard(
-                  icon: Icons.star,
-                  label: 'Loyalty Points',
-                  value: '$_points',
-                  color: const Color(0xFFD4A853),
-                  onTap: () => context.push('/profile/loyalty'),
-                )),
-              ]),
+            child: AnimatedEntrance(
+              delayMs: 100,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(children: [
+                  Expanded(child: TapBounce(
+                    child: _StatCard(
+                      icon: Icons.calendar_today,
+                      label: 'Active Bookings',
+                      value: '$_bookingsCount',
+                      color: const Color(0xFF3B82F6),
+                      onTap: () => context.go('/bookings'),
+                    ),
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: TapBounce(
+                    child: _StatCard(
+                      icon: Icons.star,
+                      label: 'Loyalty Points',
+                      value: '$_points',
+                      color: const Color(0xFFD4A853),
+                      onTap: () => context.push('/profile/loyalty'),
+                    ),
+                  )),
+                ]),
+              ),
             ),
           ),
 
           // Quick Actions Section
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text('Quick Actions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: cs.onSurface)),
+            child: AnimatedEntrance(
+              delayMs: 200,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text('Quick Actions', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: cs.onSurface)),
+              ),
             ),
           ),
 
@@ -221,11 +232,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _QuickAction(icon: Icons.bed, label: 'Book Room', color: const Color(0xFF0EA5E9), onTap: () => context.go('/rooms')),
-                  _QuickAction(icon: Icons.smart_toy, label: 'AI Concierge', color: const Color(0xFF8B5CF6), onTap: () => context.go('/chat')),
-                  _QuickAction(icon: Icons.support_agent, label: 'Support', color: const Color(0xFF22C55E), onTap: () => context.push('/profile/support')),
-                  _QuickAction(icon: Icons.loyalty, label: 'Loyalty', color: const Color(0xFFD4A853), onTap: () => context.push('/profile/loyalty')),
-                  _QuickAction(icon: Icons.rate_review, label: 'Reviews', color: const Color(0xFFF59E0B), onTap: () => context.push('/profile/reviews')),
+                  AnimatedEntrance(delayMs: 250, slideFrom: const Offset(0.06, 0), child: _QuickAction(icon: Icons.bed, label: 'Book Room', color: const Color(0xFF0EA5E9), onTap: () => context.go('/rooms'))),
+                  AnimatedEntrance(delayMs: 300, slideFrom: const Offset(0.06, 0), child: _QuickAction(icon: Icons.smart_toy, label: 'AI Concierge', color: const Color(0xFF8B5CF6), onTap: () => context.go('/chat'))),
+                  AnimatedEntrance(delayMs: 350, slideFrom: const Offset(0.06, 0), child: _QuickAction(icon: Icons.support_agent, label: 'Support', color: const Color(0xFF22C55E), onTap: () => context.push('/profile/support'))),
+                  AnimatedEntrance(delayMs: 400, slideFrom: const Offset(0.06, 0), child: _QuickAction(icon: Icons.loyalty, label: 'Loyalty', color: const Color(0xFFD4A853), onTap: () => context.push('/profile/loyalty'))),
+                  AnimatedEntrance(delayMs: 450, slideFrom: const Offset(0.06, 0), child: _QuickAction(icon: Icons.rate_review, label: 'Reviews', color: const Color(0xFFF59E0B), onTap: () => context.push('/profile/reviews'))),
                 ],
               ),
             ),
@@ -233,9 +244,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Services Section
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-              child: Text('Hotel Services', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: cs.onSurface)),
+            child: AnimatedEntrance(
+              delayMs: 350,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                child: Text('Hotel Services', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: cs.onSurface)),
+              ),
             ),
           ),
 
@@ -243,11 +257,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(children: [
-                _ServiceTile(icon: Icons.restaurant, iconColor: const Color(0xFFF97316), title: 'Room Service', subtitle: 'Order food & beverages to your room', onTap: () {}),
-                _ServiceTile(icon: Icons.spa, iconColor: const Color(0xFFEC4899), title: 'Spa & Wellness', subtitle: 'Relax and rejuvenate with our spa treatments', onTap: () {}),
-                _ServiceTile(icon: Icons.pool, iconColor: const Color(0xFF06B6D4), title: 'Pool & Recreation', subtitle: 'Enjoy our pool facilities and activities', onTap: () {}),
-                _ServiceTile(icon: Icons.local_laundry_service, iconColor: const Color(0xFF8B5CF6), title: 'Laundry Service', subtitle: 'Professional laundry & dry cleaning', onTap: () {}),
-                _ServiceTile(icon: Icons.local_taxi, iconColor: const Color(0xFF14B8A6), title: 'Airport Transfer', subtitle: 'Convenient airport pickup & drop-off', onTap: () {}),
+                AnimatedEntrance(delayMs: 400, child: TapBounce(child: _ServiceTile(icon: Icons.restaurant, iconColor: const Color(0xFFF97316), title: 'Room Service', subtitle: 'Order food & beverages to your room', onTap: () {}))),
+                AnimatedEntrance(delayMs: 450, child: TapBounce(child: _ServiceTile(icon: Icons.spa, iconColor: const Color(0xFFEC4899), title: 'Spa & Wellness', subtitle: 'Relax and rejuvenate with our spa treatments', onTap: () {}))),
+                AnimatedEntrance(delayMs: 500, child: TapBounce(child: _ServiceTile(icon: Icons.pool, iconColor: const Color(0xFF06B6D4), title: 'Pool & Recreation', subtitle: 'Enjoy our pool facilities and activities', onTap: () {}))),
+                AnimatedEntrance(delayMs: 550, child: TapBounce(child: _ServiceTile(icon: Icons.local_laundry_service, iconColor: const Color(0xFF8B5CF6), title: 'Laundry Service', subtitle: 'Professional laundry & dry cleaning', onTap: () {}))),
+                AnimatedEntrance(delayMs: 600, child: TapBounce(child: _ServiceTile(icon: Icons.local_taxi, iconColor: const Color(0xFF14B8A6), title: 'Airport Transfer', subtitle: 'Convenient airport pickup & drop-off', onTap: () {}))),
               ]),
             ),
           ),

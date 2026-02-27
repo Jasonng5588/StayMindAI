@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/supabase_service.dart';
+import '../../core/animations.dart';
 
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
@@ -70,20 +71,23 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
         // Guest selector
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Card(child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(children: [
-                Icon(Icons.people, color: cs.primary),
-                const SizedBox(width: 12),
-                const Text('Guests:', style: TextStyle(fontWeight: FontWeight.w500)),
-                const Spacer(),
-                IconButton(onPressed: _guests > 1 ? () => setState(() => _guests--) : null, icon: const Icon(Icons.remove_circle_outline)),
-                Text('$_guests', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                IconButton(onPressed: _guests < 6 ? () => setState(() => _guests++) : null, icon: const Icon(Icons.add_circle_outline)),
-              ]),
-            )),
+          child: AnimatedEntrance(
+            delayMs: 150,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Card(child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(children: [
+                  Icon(Icons.people, color: cs.primary),
+                  const SizedBox(width: 12),
+                  const Text('Guests:', style: TextStyle(fontWeight: FontWeight.w500)),
+                  const Spacer(),
+                  IconButton(onPressed: _guests > 1 ? () => setState(() => _guests--) : null, icon: const Icon(Icons.remove_circle_outline)),
+                  Text('$_guests', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(onPressed: _guests < 6 ? () => setState(() => _guests++) : null, icon: const Icon(Icons.add_circle_outline)),
+                ]),
+              )),
+            ),
           ),
         ),
 
@@ -102,54 +106,57 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 final originalPrice = room['originalPrice'] as int;
                 final available = room['available'] as int;
 
-                return Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
+                return AnimatedEntrance(
+                  delayMs: 200 + (i * 100), // Staggered entrance for each room
+                  child: TapBounce(
                     onTap: () => context.push('/rooms/book', extra: room),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      // Room header with emoji
-                      Container(
-                        height: 100,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [cs.primaryContainer, cs.primaryContainer.withOpacity(0.5)]),
-                        ),
-                        child: Center(child: Text(room['emoji'] as String, style: const TextStyle(fontSize: 48))),
-                      ),
-                      Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(child: Text(room['name'] as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: available > 0 ? Colors.green.shade50 : Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                            child: Text('$available left', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: available > 0 ? Colors.green.shade700 : Colors.red.shade700)),
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        // Room header with emoji
+                        Container(
+                          height: 100,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [cs.primaryContainer, cs.primaryContainer.withOpacity(0.5)]),
                           ),
-                        ]),
-                        const SizedBox(height: 4),
-                        Text(room['desc'] as String, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
-                        const SizedBox(height: 8),
-                        Row(children: [
-                          Icon(Icons.bed, size: 14, color: cs.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Text(room['bed'] as String, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                          const SizedBox(width: 12),
-                          Icon(Icons.people, size: 14, color: cs.onSurfaceVariant),
-                          const SizedBox(width: 4),
-                          Text('Max ${room['maxOcc']}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                          const SizedBox(width: 12),
-                          Text(room['size'] as String, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                        ]),
-                        const SizedBox(height: 12),
-                        Row(children: [
-                          if (originalPrice > price) Text('RM$originalPrice', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, decoration: TextDecoration.lineThrough)),
-                          if (originalPrice > price) const SizedBox(width: 8),
-                          Text('RM$price', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cs.primary)),
-                          const Text(' /night', style: TextStyle(fontSize: 12)),
-                          const Spacer(),
-                          FilledButton(onPressed: () => context.push('/rooms/book', extra: room), child: const Text('Book Now')),
-                        ]),
-                      ])),
-                    ]),
+                          child: Center(child: Text(room['emoji'] as String, style: const TextStyle(fontSize: 48))),
+                        ),
+                        Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Expanded(child: Text(room['name'] as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: available > 0 ? Colors.green.shade50 : Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                              child: Text('$available left', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: available > 0 ? Colors.green.shade700 : Colors.red.shade700)),
+                            ),
+                          ]),
+                          const SizedBox(height: 4),
+                          Text(room['desc'] as String, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Icon(Icons.bed, size: 14, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 4),
+                            Text(room['bed'] as String, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                            const SizedBox(width: 12),
+                            Icon(Icons.people, size: 14, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 4),
+                            Text('Max ${room['maxOcc']}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                            const SizedBox(width: 12),
+                            Text(room['size'] as String, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                          ]),
+                          const SizedBox(height: 12),
+                          Row(children: [
+                            if (originalPrice > price) Text('RM$originalPrice', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, decoration: TextDecoration.lineThrough)),
+                            if (originalPrice > price) const SizedBox(width: 8),
+                            Text('RM$price', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cs.primary)),
+                            const Text(' /night', style: TextStyle(fontSize: 12)),
+                            const Spacer(),
+                            FilledButton(onPressed: () => context.push('/rooms/book', extra: room), child: const Text('Book Now')),
+                          ]),
+                        ])),
+                      ]),
+                    ),
                   ),
                 );
               },
