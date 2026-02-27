@@ -24,11 +24,18 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
   bool _processing = false;
   String? _error;
   Map<String, dynamic>? _bookingResult;
+  // Voucher / promo code
+  final _promoC = TextEditingController();
+  Map<String, dynamic>? _appliedVoucher;
+  bool _validatingPromo = false;
+  String? _promoError;
 
   String get _roomName => (widget.roomData?['name'] as String?) ?? 'Standard Room';
   int get _roomPrice => (widget.roomData?['price'] as int?) ?? 179;
   int get _nights => _checkOut.difference(_checkIn).inDays;
-  int get _total => _roomPrice * _nights;
+  int get _subtotal => _roomPrice * _nights;
+  int get _discount => (_appliedVoucher?['discount_amount'] as num?)?.toInt() ?? 0;
+  int get _total => (_subtotal - _discount).clamp(0, _subtotal);
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
   @override
@@ -45,6 +52,7 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
   void dispose() {
     _nameC.dispose(); _emailC.dispose(); _specialC.dispose();
     _cardNumC.dispose(); _cardNameC.dispose(); _expiryC.dispose(); _cvvC.dispose();
+    _promoC.dispose();
     super.dispose();
   }
 
@@ -72,6 +80,8 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
         guests: _guests,
         totalAmount: _total.toDouble(),
         specialRequests: _specialC.text.trim().isNotEmpty ? _specialC.text.trim() : null,
+        voucherCode: _appliedVoucher?['code']?.toString(),
+        discountAmount: _discount.toDouble(),
       );
 
       setState(() { _processing = false; _bookingResult = result; _step = 3; });
@@ -333,6 +343,74 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
               ]),
             ),
             const SizedBox(height: 16),
+            // ── Promo Code / Voucher ──────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _appliedVoucher != null ? Colors.green.withOpacity(0.5) : cs.outlineVariant.withOpacity(0.4)),
+                color: _appliedVoucher != null ? Colors.green.withOpacity(0.05) : cs.surfaceVariant.withOpacity(0.2),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.local_offer, size: 18, color: _appliedVoucher != null ? Colors.green : cs.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Text('Promo Code / Voucher', style: TextStyle(fontWeight: FontWeight.w600, color: _appliedVoucher != null ? Colors.green.shade700 : null)),
+                ]),
+                const SizedBox(height: 10),
+                if (_appliedVoucher == null) Row(children: [
+                  Expanded(child: TextField(
+                    controller: _promoC,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      hintText: 'Enter code (e.g. SUMMER25)',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      isDense: true,
+                    ),
+                  )),
+                  const SizedBox(width: 10),
+                  FilledButton(
+                    onPressed: _validatingPromo ? null : () async {
+                      final code = _promoC.text.trim();
+                      if (code.isEmpty) return;
+                      setState(() { _validatingPromo = true; _promoError = null; });
+                      final result = await SupabaseService.validateVoucherCode(code, bookingAmount: _subtotal.toDouble());
+                      setState(() {
+                        _validatingPromo = false;
+                        if (result != null) {
+                          _appliedVoucher = result;
+                          _promoError = null;
+                        } else {
+                          _promoError = 'Invalid or expired code';
+                        }
+                      });
+                    },
+                    style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                    child: _validatingPromo ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Apply'),
+                  ),
+                ]) else Row(children: [
+                  Icon(Icons.check_circle, color: Colors.green.shade600, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_appliedVoucher!['code']?.toString() ?? '', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700, fontFamily: 'monospace')),
+                    Text(_appliedVoucher!['description']?.toString() ?? '', style: TextStyle(fontSize: 12, color: Colors.green.shade600)),
+                  ])),
+                  TextButton.icon(
+                    onPressed: () => setState(() { _appliedVoucher = null; _promoC.clear(); }),
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('Remove'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                ]),
+                if (_promoError != null) Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(_promoError!, style: TextStyle(fontSize: 12, color: cs.error)),
+                ),
+              ]),
+            ),
+            // ── Order Summary ─────────────────────────────────────
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -341,8 +419,15 @@ class _BookingFlowScreenState extends State<BookingFlowScreen> {
               ),
               child: Column(children: [
                 _SummaryRow('Room', _roomName),
-                _SummaryRow('Dates', '${_fmtDate(_checkIn)} \u2192 ${_fmtDate(_checkOut)}'),
-                _SummaryRow('$_nights night${_nights > 1 ? 's' : ''} \u00D7 RM $_roomPrice', 'RM $_total'),
+                _SummaryRow('Dates', '${_fmtDate(_checkIn)} → ${_fmtDate(_checkOut)}'),
+                _SummaryRow('$_nights night${_nights > 1 ? 's' : ''} × RM $_roomPrice', 'RM $_subtotal'),
+                if (_discount > 0) ...[
+                  const Divider(height: 12),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text('Discount (${_appliedVoucher?['code']})', style: TextStyle(color: Colors.green.shade700, fontSize: 13)),
+                    Text('− RM $_discount', style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w600)),
+                  ]),
+                ],
                 const Divider(height: 20),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   const Text('Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),

@@ -98,12 +98,13 @@ class SupabaseService {
   }
 
   // --- Bookings ---
-  static Future<Map<String, dynamic>> createBooking({required String hotelId, required String roomId, String? roomTypeId, required String checkIn, required String checkOut, int guests = 1, required double totalAmount, String? specialRequests, String? promoCode}) async {
+  static Future<Map<String, dynamic>> createBooking({required String hotelId, required String roomId, String? roomTypeId, required String checkIn, required String checkOut, int guests = 1, required double totalAmount, String? specialRequests, String? voucherCode, double discountAmount = 0}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
     final code = 'BK-' + DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
     final data = <String, dynamic>{'hotel_id': hotelId, 'user_id': _userId, 'room_id': roomId, 'check_in': checkIn, 'check_out': checkOut, 'guests': guests, 'total_amount': totalAmount, 'status': 'confirmed', 'booking_number': code};
     if (specialRequests != null && specialRequests.isNotEmpty) data['special_requests'] = specialRequests;
-    if (promoCode != null && promoCode.isNotEmpty) data['promo_code'] = promoCode;
+    if (voucherCode != null && voucherCode.isNotEmpty) data['voucher_code'] = voucherCode;
+    if (discountAmount > 0) data['discount_amount'] = discountAmount;
     try { return await client.from('bookings').insert({...data, 'source': 'mobile_app'}).select().single(); }
     catch (_) { return await client.from('bookings').insert(data).select().single(); }
   }
@@ -134,13 +135,7 @@ class SupabaseService {
     } catch (e) { print('getMyReviews error: $e'); return []; }
   }
 
-  // --- Notifications ---
-  static Future<List<Map<String, dynamic>>> getNotifications() async {
-    if (_userId == null) return [];
-    try { return List<Map<String, dynamic>>.from(await client.from('notifications').select('*').eq('user_id', _userId!).order('created_at', ascending: false).limit(50)); }
-    catch (e) { print('getNotifications error: $e'); return []; }
-  }
-  static Future<void> markNotificationRead(String id) => client.from('notifications').update({'is_read': true}).eq('id', id);
+
 
   // --- Staff ---
   static Future<Map<String, dynamic>?> getStaffHotel() async {
@@ -241,11 +236,98 @@ class SupabaseService {
     } catch (e) { print('ticket_messages insert non-fatal: $e'); }
   }
 
-  // --- AI Chatbot ---
   static Future<String> chatWithAI(String hotelId, String message, List<Map<String, String>> history) async {
     try {
       final res = await client.functions.invoke('chatbot', body: {'hotel_id': hotelId, 'message': message, 'conversation_history': history});
       return res.data?['reply'] ?? 'Sorry, I could not process your request.';
     } catch (_) { return "I'm having trouble connecting right now. Please try again or contact the front desk."; }
+  }
+
+  // --- Notifications ---
+  static Future<List<Map<String, dynamic>>> getNotifications() async {
+    if (_userId == null) return [];
+    try {
+      final res = await client.from('notifications').select('*').eq('user_id', _userId!).order('created_at', ascending: false).limit(50);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) { print('getNotifications error: $e'); return []; }
+  }
+
+  static Future<void> markNotificationRead(String id) async {
+    try { await client.from('notifications').update({'is_read': true}).eq('id', id); } catch (_) {}
+  }
+
+  static Future<void> markAllNotificationsRead() async {
+    if (_userId == null) return;
+    try { await client.from('notifications').update({'is_read': true}).eq('user_id', _userId!); } catch (_) {}
+  }
+
+  /// Subscribe to real-time notification inserts for the current user.
+  /// Returns the RealtimeChannel — caller must removeChannel when done.
+  static RealtimeChannel subscribeToNotifications(
+    void Function(Map<String, dynamic>) onNewNotification,
+  ) {
+    final uid = _userId ?? '';
+    return client
+        .channel('user-notifications-$uid')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
+          callback: (payload) => onNewNotification(Map<String, dynamic>.from(payload.newRecord)),
+        )
+        .subscribe();
+  }
+
+  // --- User Vouchers ---
+  static Future<List<Map<String, dynamic>>> getUserVouchers() async {
+    if (_userId == null) return [];
+    try {
+      final res = await client.from('user_vouchers').select('*').eq('user_id', _userId!).order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) { print('getUserVouchers error: $e'); return []; }
+  }
+
+  /// Validate a promo/voucher code. Returns null if invalid, or a map with:
+  /// { code, discount_type, discount_value, discount_amount, description, source }
+  static Future<Map<String, dynamic>?> validateVoucherCode(String code, {double bookingAmount = 0}) async {
+    try {
+      final upperCode = code.toUpperCase().trim();
+      final now = DateTime.now();
+
+      // Check promo_codes table (public codes)
+      final promos = await client
+          .from('promo_codes')
+          .select('*')
+          .eq('code', upperCode)
+          .eq('is_active', true)
+          .limit(1);
+      if (promos.isNotEmpty) {
+        final p = promos[0];
+        if (p['valid_from'] != null && DateTime.tryParse(p['valid_from'])?.isAfter(now) == true) return null;
+        if (p['valid_to'] != null && DateTime.tryParse(p['valid_to'])?.isBefore(now) == true) return null;
+        if (p['usage_limit'] != null && (p['used_count'] ?? 0) >= p['usage_limit']) return null;
+        final val = (p['discount_value'] as num).toDouble();
+        final disc = p['discount_type'] == 'percentage'
+            ? (bookingAmount * val / 100).floorToDouble()
+            : val.clamp(0, bookingAmount);
+        return {'code': upperCode, 'discount_type': p['discount_type'], 'discount_value': val, 'discount_amount': disc, 'description': p['description'] ?? '${p['discount_type'] == 'percentage' ? val.toInt().toString() + '%' : 'RM${val.toInt()}'} off', 'source': 'promo_code', 'voucher_id': p['id']};
+      }
+
+      // Check user_vouchers table (personal)
+      if (_userId != null) {
+        final uvs = await client.from('user_vouchers').select('*').eq('user_id', _userId!).eq('code', upperCode).eq('is_used', false).limit(1);
+        if (uvs.isNotEmpty) {
+          final v = uvs[0];
+          if (v['expires_at'] != null && DateTime.tryParse(v['expires_at'])?.isBefore(now) == true) return null;
+          final val = (v['discount_value'] as num).toDouble();
+          final disc = v['discount_type'] == 'percentage'
+              ? (bookingAmount * val / 100).floorToDouble()
+              : val.clamp(0, bookingAmount);
+          return {'code': upperCode, 'discount_type': v['discount_type'], 'discount_value': val, 'discount_amount': disc, 'description': v['description'] ?? 'Personal voucher', 'source': 'user_voucher', 'voucher_id': v['id']};
+        }
+      }
+      return null; // Not found
+    } catch (e) { print('validateVoucherCode error: $e'); return null; }
   }
 }
