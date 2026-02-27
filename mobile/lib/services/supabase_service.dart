@@ -6,7 +6,7 @@ class SupabaseService {
   // --- Auth ---
   static Future<AuthResponse> signUp(String email, String password, String name, {String role = 'guest'}) async {
     final res = await client.auth.signUp(email: email, password: password, data: {'full_name': name, 'role': role});
-    if (res.user != null) await _upsertProfile(res.user!.id, email, name, role);
+    if (res.user != null) _upsertProfileSafe(res.user!.id, email, name);
     return res;
   }
 
@@ -14,23 +14,43 @@ class SupabaseService {
     final res = await client.auth.signInWithPassword(email: email, password: password);
     if (res.user != null) {
       final name = res.user!.userMetadata?['full_name'] ?? email.split('@')[0];
-      final role = res.user!.userMetadata?['role'] ?? 'guest';
-      await _upsertProfile(res.user!.id, email, name, role);
+      _upsertProfileSafe(res.user!.id, email, name);
     }
     return res;
   }
 
-  static Future<void> _upsertProfile(String id, String email, String name, String role) async {
+  // Non-blocking best-effort profile creation — never throws
+  static void _upsertProfileSafe(String id, String email, String name) {
+    Future(() async {
+      try {
+        await client.from('profiles').upsert(
+          {'id': id, 'email': email, 'full_name': name, 'role': 'guest', 'updated_at': DateTime.now().toIso8601String()},
+          onConflict: 'id',
+        );
+      } catch (e) {
+        print('_upsertProfileSafe (non-fatal): $e');
+      }
+    });
+  }
+
+  // Best-effort profile check — NEVER blocks or throws
+  static Future<void> ensureProfile() async {
+    final user = currentUser;
+    if (user == null) return;
     try {
-      await client.from('profiles').upsert({
-        'id': id,
-        'email': email,
-        'full_name': name,
-        'role': role,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'id');
+      // First check if profile already exists (most cases)
+      final existing = await client.from('profiles').select('id').eq('id', user.id).maybeSingle();
+      if (existing != null) return; // Profile exists, nothing to do
+      // Try to insert
+      await client.from('profiles').insert({
+        'id': user.id,
+        'email': user.email ?? '',
+        'full_name': user.userMetadata?['full_name'] ?? user.email?.split('@')[0] ?? 'Guest',
+        'role': 'guest',
+      });
     } catch (e) {
-      print('_upsertProfile failed (non-fatal): $e');
+      // Non-fatal — profile might exist or RLS prevents check
+      print('ensureProfile (non-fatal): $e');
     }
   }
 
@@ -44,15 +64,6 @@ class SupabaseService {
   static Session? get currentSession => client.auth.currentSession;
   static String? get _userId => currentUser?.id;
 
-  // Ensure profile exists before any insert that references profiles(id)
-  static Future<void> ensureProfile() async {
-    final user = currentUser;
-    if (user == null) return;
-    final name = user.userMetadata?['full_name'] ?? user.email?.split('@')[0] ?? 'Guest';
-    final role = user.userMetadata?['role'] ?? 'guest';
-    await _upsertProfile(user.id, user.email ?? '', name, role);
-  }
-
   // --- Hotels ---
   static Future<List<Map<String, dynamic>>> searchHotels({String? query, String? city, double? minPrice, double? maxPrice, int? minRating}) async {
     try {
@@ -60,8 +71,7 @@ class SupabaseService {
       if (query != null && query.isNotEmpty) q = q.ilike('name', '%$query%');
       if (city != null) q = q.ilike('city', '%$city%');
       if (minRating != null) q = q.gte('star_rating', minRating);
-      final data = await q.order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(data);
+      return List<Map<String, dynamic>>.from(await q.order('created_at', ascending: false));
     } catch (e) { print('searchHotels error: $e'); return []; }
   }
 
@@ -90,7 +100,6 @@ class SupabaseService {
   // --- Bookings ---
   static Future<Map<String, dynamic>> createBooking({required String hotelId, required String roomId, String? roomTypeId, required String checkIn, required String checkOut, int guests = 1, required double totalAmount, String? specialRequests, String? promoCode}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
-    await ensureProfile(); // Guarantee profile exists before FK insert
     final code = 'BK-' + DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
     final data = <String, dynamic>{'hotel_id': hotelId, 'user_id': _userId, 'room_id': roomId, 'check_in': checkIn, 'check_out': checkOut, 'guests': guests, 'total_amount': totalAmount, 'status': 'confirmed', 'booking_number': code};
     if (specialRequests != null && specialRequests.isNotEmpty) data['special_requests'] = specialRequests;
@@ -109,10 +118,9 @@ class SupabaseService {
 
   static Future<void> cancelBooking(String bookingId) => client.from('bookings').update({'status': 'cancelled'}).eq('id', bookingId);
 
-  // --- Reviews (NOTE: table uses guest_id, NOT user_id) ---
+  // --- Reviews (NOTE: table uses guest_id column) ---
   static Future<void> submitReview(String hotelId, int rating, String comment, {String? bookingId}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
-    await ensureProfile();
     final data = <String, dynamic>{'hotel_id': hotelId, 'guest_id': _userId, 'rating': rating, 'comment': comment};
     if (bookingId != null) data['booking_id'] = bookingId;
     await client.from('reviews').insert(data);
@@ -142,7 +150,6 @@ class SupabaseService {
       return await client.from('hotels').select('*').eq('id', staff['hotel_id']).maybeSingle();
     } catch (e) { print('getStaffHotel error: $e'); return null; }
   }
-
   static Future<List<Map<String, dynamic>>> getHousekeepingTasks(String hotelId) async {
     try { return List<Map<String, dynamic>>.from(await client.from('housekeeping_tasks').select('*, rooms(room_number)').eq('hotel_id', hotelId).order('created_at', ascending: false)); }
     catch (e) { print('getHousekeepingTasks error: $e'); return []; }
@@ -181,7 +188,6 @@ class SupabaseService {
   static Future<bool> redeemReward(String rewardId, String rewardName, int pointsCost) async {
     if (_userId == null) return false;
     try {
-      await ensureProfile();
       String? hotelId;
       try { final b = await client.from('bookings').select('hotel_id').eq('user_id', _userId!).limit(1).maybeSingle(); hotelId = b?['hotel_id']?.toString(); } catch (_) {}
       if (hotelId == null || hotelId.isEmpty) {
@@ -195,7 +201,6 @@ class SupabaseService {
     } catch (e) { print('redeemReward error: $e'); return false; }
   }
 
-  // --- Hotels for Review ---
   static Future<List<Map<String, dynamic>>> getBookedHotels() async {
     if (_userId == null) return [];
     try {
@@ -227,14 +232,13 @@ class SupabaseService {
 
   static Future<void> createSupportTicket({required String subject, required String description, String category = 'general'}) async {
     if (_userId == null) throw Exception('Not logged in. Please sign in and try again.');
-    await ensureProfile(); // Guarantee profile exists before FK insert
     final ticket = await client.from('support_tickets').insert({
       'user_id': _userId, 'subject': subject, 'description': description,
       'category': category, 'priority': 'medium', 'status': 'open',
     }).select().single();
     try {
       await client.from('ticket_messages').insert({'ticket_id': ticket['id'], 'sender_id': _userId, 'role': 'guest', 'message': description});
-    } catch (e) { print('ticket_messages insert (non-fatal): $e'); }
+    } catch (e) { print('ticket_messages insert non-fatal: $e'); }
   }
 
   // --- AI Chatbot ---
