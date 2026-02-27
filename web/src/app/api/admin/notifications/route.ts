@@ -11,14 +11,14 @@ export async function GET(request: Request) {
         const admin = createAdminClient()
         let query = admin
             .from('notifications')
-            .select('*')
+            .select('*, profiles:user_id(full_name, email)')
             .order('created_at', { ascending: false })
             .limit(limit)
 
         if (userId) query = query.eq('user_id', userId)
 
         const { data, error } = await query
-        if (error) throw error
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
         return NextResponse.json({ notifications: data || [] })
     } catch (err: unknown) {
@@ -31,8 +31,13 @@ export async function DELETE(request: Request) {
     try {
         const { id, user_id } = await request.json()
         const admin = createAdminClient()
-        if (id) await admin.from('notifications').delete().eq('id', id)
-        else if (user_id) await admin.from('notifications').delete().eq('user_id', user_id)
+        if (id) {
+            const { error } = await admin.from('notifications').delete().eq('id', id)
+            if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        } else if (user_id) {
+            const { error } = await admin.from('notifications').delete().eq('user_id', user_id)
+            if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        }
         return NextResponse.json({ success: true })
     } catch (err: unknown) {
         return NextResponse.json({ error: 'Failed' }, { status: 500 })
@@ -49,13 +54,24 @@ export async function POST(request: Request) {
         const admin = createAdminClient()
         const { data, error } = await admin
             .from('notifications')
-            .insert({ user_id, type: type || 'info', title, message, action_url: action_url || null, metadata: metadata || {} })
+            .insert({
+                user_id,
+                type: type || 'info',
+                title,
+                message,
+                action_url: action_url || null,
+                metadata: metadata || null,   // null is safer than {} for JSONB
+            })
             .select()
             .single()
-        if (error) throw error
+        if (error) {
+            console.error('[admin/notifications POST] DB error:', JSON.stringify(error))
+            return NextResponse.json({ error: error.message || error.details || 'DB error' }, { status: 500 })
+        }
         return NextResponse.json({ notification: data }, { status: 201 })
     } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to send notification'
+        const raw = err as Record<string, unknown>
+        const msg = raw?.message as string || 'Failed to send notification'
         return NextResponse.json({ error: msg }, { status: 500 })
     }
 }

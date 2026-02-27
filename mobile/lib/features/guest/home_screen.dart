@@ -13,11 +13,60 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userName = 'Guest';
   int _bookingsCount = 0;
   int _points = 0;
+  int _unreadNotifications = 0;
+  RealtimeChannel? _notiChannel;
 
   @override
   void initState() {
     super.initState();
     _loadInfo();
+    _loadUnreadCount();
+    _subscribeToNotifications();
+  }
+
+  @override
+  void dispose() {
+    if (_notiChannel != null) {
+      SupabaseService.client.removeChannel(_notiChannel!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final userId = SupabaseService.currentUser?.id;
+      if (userId == null) return;
+      final res = await SupabaseService.client
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_read', false);
+      if (mounted) setState(() => _unreadNotifications = res.length);
+    } catch (_) {}
+  }
+
+  void _subscribeToNotifications() {
+    final userId = SupabaseService.currentUser?.id;
+    if (userId == null) return;
+    _notiChannel = SupabaseService.client
+        .channel('home-noti-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          callback: (payload) {
+            final row = payload.newRecord;
+            if (row['user_id'] != userId) return;
+            if (mounted) setState(() => _unreadNotifications++);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'notifications',
+          callback: (_) => _loadUnreadCount(),
+        )
+        .subscribe();
   }
 
   void _loadInfo() {
@@ -82,14 +131,41 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Spacer(),
                         GestureDetector(
-                          onTap: () => context.push('/profile/notifications'),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                          onTap: () {
+                            context.push('/profile/notifications');
+                            // Reset badge after opening
+                            Future.delayed(const Duration(milliseconds: 500), () { if (mounted) setState(() => _unreadNotifications = 0); });
+                          },
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                              ),
+                              if (_unreadNotifications > 0)
+                                Positioned(
+                                  top: -4,
+                                  right: -4,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFEF4444),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                    child: Text(
+                                      _unreadNotifications > 99 ? '99+' : '$_unreadNotifications',
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ]),
