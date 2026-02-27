@@ -43,13 +43,19 @@ export default function GuestSupportPage() {
 
     // Subscribe to Realtime when a ticket is selected
     useEffect(() => {
-        if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
+        // Tear down existing channel first
+        if (channelRef.current) {
+            supabase.removeChannel(channelRef.current)
+            channelRef.current = null
+        }
         if (!selected) return
 
+        // Load existing messages immediately
         loadMessages(selected.id)
 
+        const channelName = `ticket-messages-guest-${selected.id}`
         const channel = supabase
-            .channel(`guest-ticket-${selected.id}`)
+            .channel(channelName)
             .on('postgres_changes', {
                 event: 'INSERT', schema: 'public', table: 'ticket_messages',
                 filter: `ticket_id=eq.${selected.id}`,
@@ -59,24 +65,28 @@ export default function GuestSupportPage() {
                 setMessages(prev => prev.some(x => x.id === msg.id) ? prev : [...prev, msg])
                 scrollToBottom()
             })
-            // Also listen for ticket status changes (to trigger review prompt)
             .on('postgres_changes', {
                 event: 'UPDATE', schema: 'public', table: 'support_tickets',
                 filter: `id=eq.${selected.id}`,
             }, (payload: { new: Record<string, unknown> }) => {
                 const newStatus = payload.new.status as string
                 if (newStatus === 'resolved' && selected.status !== 'resolved') {
-                    // Update ticket status in state
                     setSelected(prev => prev ? { ...prev, status: 'resolved' } : null)
                     setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, status: 'resolved' } : t))
-                    // Show review prompt!
                     setTimeout(() => setPendingReview({ ...selected, status: 'resolved' }), 800)
                 }
             })
-            .subscribe()
+            .subscribe((status, err) => {
+                if (err) console.error('[Support RT] subscribe error:', err)
+                else console.log('[Support RT] status:', status)
+            })
 
         channelRef.current = channel
-        return () => { supabase.removeChannel(channel); channelRef.current = null }
+        return () => {
+            supabase.removeChannel(channel)
+            channelRef.current = null
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selected?.id])
 
     const loadMessages = async (ticketId: string) => {

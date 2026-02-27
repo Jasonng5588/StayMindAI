@@ -38,3 +38,24 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Failed' }, { status: 500 })
     }
 }
+
+// POST: Admin sends a notification to a specific user
+export async function POST(request: Request) {
+    try {
+        const { user_id, type, title, message, action_url, metadata } = await request.json()
+        if (!user_id || !title || !message) {
+            return NextResponse.json({ error: 'user_id, title, message required' }, { status: 400 })
+        }
+        const admin = createAdminClient()
+        const { data, error } = await admin
+            .from('notifications')
+            .insert({ user_id, type: type || 'info', title, message, action_url: action_url || null, metadata: metadata || {} })
+            .select()
+            .single()
+        if (error) throw error
+        return NextResponse.json({ notification: data }, { status: 201 })
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to send notification'
+        return NextResponse.json({ error: msg }, { status: 500 })
+    }
+}

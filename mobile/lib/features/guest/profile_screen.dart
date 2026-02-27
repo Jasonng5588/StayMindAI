@@ -70,6 +70,8 @@ class ProfileScreen extends ConsumerWidget {
               _ProfileTile(icon: Icons.calendar_today, iconColor: const Color(0xFF0EA5E9), title: 'My Bookings', onTap: () => context.go('/bookings')),
               _ProfileTile(icon: Icons.rate_review_outlined, iconColor: const Color(0xFFF97316), title: 'My Reviews', onTap: () => context.push('/profile/reviews')),
               _ProfileTile(icon: Icons.loyalty, iconColor: const Color(0xFFD4A853), title: 'Loyalty Program', onTap: () => context.push('/profile/loyalty')),
+              _ProfileTile(icon: Icons.card_giftcard, iconColor: const Color(0xFF7C3AED), title: 'My Rewards', onTap: () => context.push('/profile/rewards')),
+              _ProfileTile(icon: Icons.local_offer, iconColor: const Color(0xFFEF4444), title: 'My Vouchers', onTap: () => context.push('/profile/vouchers')),
               const SizedBox(height: 16),
 
               // Help section

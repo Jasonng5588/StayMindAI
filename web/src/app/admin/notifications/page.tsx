@@ -35,11 +35,15 @@ export default function AdminNotificationsPage() {
     const fetchData = async () => {
         setLoading(true)
         try {
-            // Fetch all guests
+            // Fetch all guests — /api/admin/data?type=customers returns { profiles, bookings, points }
             const gRes = await fetch('/api/admin/data?type=customers')
-            if (gRes.ok) { const d = await gRes.json(); setGuests(d.users || d.customers || []) }
+            if (gRes.ok) {
+                const d = await gRes.json()
+                const raw = d.profiles || d.users || d.customers || []
+                setGuests(raw.map((p: Record<string, unknown>) => ({ id: p.id, email: p.email, full_name: p.full_name })))
+            }
 
-            // Fetch all notifications (admin sees all)
+            // Fetch all notifications via admin endpoint
             const nRes = await fetch('/api/admin/notifications')
             if (nRes.ok) { const d = await nRes.json(); setNotifications(d.notifications || []) }
         } catch (err) { console.error(err) }
@@ -50,7 +54,8 @@ export default function AdminNotificationsPage() {
         if (!form.user_id || !form.title || !form.message) return
         setSending(true)
         try {
-            const res = await fetch('/api/notifications', {
+            // Use admin endpoint — bypasses Supabase user auth requirement
+            const res = await fetch('/api/admin/notifications', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form),
@@ -59,14 +64,18 @@ export default function AdminNotificationsPage() {
                 setShowSend(false)
                 setForm({ user_id: '', type: 'info', title: '', message: '' })
                 setSelectedGuest(null)
+                setGuestSearch('')
                 fetchData()
+            } else {
+                const err = await res.json()
+                alert('Failed: ' + (err.error || 'Unknown error'))
             }
         } catch (err) { console.error(err) }
         setSending(false)
     }
 
     const deleteNotification = async (id: string) => {
-        await fetch('/api/notifications', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+        await fetch('/api/admin/notifications', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
         setNotifications(prev => prev.filter(n => n.id !== id))
     }
 

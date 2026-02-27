@@ -18,6 +18,7 @@ import '../features/guest/edit_profile_screen.dart';
 import '../features/guest/loyalty_screen.dart';
 import '../features/guest/my_reward_screen.dart';
 import '../features/guest/support_screen.dart';
+import '../features/guest/vouchers_screen.dart';
 import '../features/guest/guest_shell.dart';
 import '../features/staff/staff_dashboard_screen.dart';
 import '../features/staff/housekeeping_screen.dart';
@@ -84,6 +85,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'loyalty', builder: (_, __) => const LoyaltyScreen()),
               GoRoute(path: 'rewards', builder: (_, __) => const MyRewardScreen()),
               GoRoute(path: 'support', builder: (_, __) => const SupportScreen()),
+              GoRoute(path: 'vouchers', builder: (_, __) => const VouchersScreen()),
             ]),
           ]),
         ],
