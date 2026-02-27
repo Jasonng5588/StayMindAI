@@ -291,6 +291,49 @@ class SupabaseService {
     });
   }
 
+  // --- Loyalty Redemption ---
+  static Future<bool> redeemReward(String rewardId, String rewardName, int pointsCost) async {
+    if (_userId == null) return false;
+    try {
+      // Deduct points by inserting a negative points record
+      await client.from('loyalty_points').insert({
+        'user_id': _userId,
+        'points': -pointsCost,
+        'type': 'redemption',
+        'description': 'Redeemed: $rewardName',
+      });
+      return true;
+    } catch (e) {
+      print('redeemReward error: $e');
+      return false;
+    }
+  }
+
+  // --- Hotels for Review ---
+  static Future<List<Map<String, dynamic>>> getBookedHotels() async {
+    if (_userId == null) return [];
+    try {
+      final bookings = await client.from('bookings')
+        .select('hotel_id, hotels(id, name)')
+        .eq('user_id', _userId!)
+        .inFilter('status', ['checked_out', 'completed', 'confirmed']);
+      // Deduplicate by hotel_id
+      final seen = <String>{};
+      final hotels = <Map<String, dynamic>>[];
+      for (final b in bookings) {
+        final hid = b['hotel_id']?.toString() ?? '';
+        if (hid.isNotEmpty && seen.add(hid)) {
+          final name = (b['hotels'] is Map) ? b['hotels']['name'] ?? 'Hotel' : 'Hotel';
+          hotels.add({'id': hid, 'name': name});
+        }
+      }
+      return hotels;
+    } catch (e) {
+      print('getBookedHotels error: $e');
+      return [];
+    }
+  }
+
   // --- AI Chatbot ---
   static Future<String> chatWithAI(String hotelId, String message, List<Map<String, String>> history) async {
     try {
