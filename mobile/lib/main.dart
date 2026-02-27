@@ -24,15 +24,15 @@ class StayMindApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final isDark = ref.watch(themeProvider);
 
-    return AppResumeWrapper(
-      child: MaterialApp.router(
-        title: 'StayMind AI',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-        routerConfig: router,
-      ),
+    return MaterialApp.router(
+      title: 'StayMind AI',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      routerConfig: router,
+      // AppResumeWrapper must be inside MaterialApp so Theme.of(context) works
+      builder: (context, child) => AppResumeWrapper(child: child ?? const SizedBox.shrink()),
     );
   }
 }
