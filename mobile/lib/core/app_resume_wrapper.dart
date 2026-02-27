@@ -84,12 +84,14 @@ class _AppResumeWrapperState extends State<AppResumeWrapper>
             final iconBg = isDark ? const Color(0xFF3B82F6) : Colors.white.withOpacity(0.95);
             final iconColor = isDark ? Colors.white : const Color(0xFF0EA5E9);
 
-            return Opacity(
-              opacity: _fadeAnim.value.clamp(0.0, 1.0),
-              child: Container(
-                color: bg,
-                child: Center(
-                  child: Transform.scale(
+            return Material(
+              type: MaterialType.transparency,
+              child: Opacity(
+                opacity: _fadeAnim.value.clamp(0.0, 1.0),
+                child: Container(
+                  color: bg,
+                  child: Center(
+                    child: Transform.scale(
                     scale: _scaleAnim.value,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -146,7 +148,8 @@ class _AppResumeWrapperState extends State<AppResumeWrapper>
                   ),
                 ),
               ),
-            );
+            ),
+          );
           },
         ),
     ]);
