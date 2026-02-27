@@ -13,14 +13,22 @@ class _RoomsScreenState extends State<RoomsScreen> {
   List<Map<String, dynamic>> _rooms = [];
   bool _loading = true;
 
-  final _roomEmojis = <String, String>{
-    'standard': '🏨', 'deluxe': '🌊', 'suite': '🌴', 'presidential': '👑',
-  };
-
   @override
   void initState() {
     super.initState();
     _fetchRooms();
+  }
+
+  String _getRoomImage(String name, String type) {
+    name = name.toLowerCase();
+    type = type.toLowerCase();
+    if (name.contains('presidential') || type.contains('presidential')) return 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&q=80&w=1000';
+    if (name.contains('family') || type.contains('family')) return 'https://images.unsplash.com/photo-1582719478250-c894002e1c9e?auto=format&fit=crop&q=80&w=1000';
+    if (name.contains('executive') || type.contains('executive')) return 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&q=80&w=1000';
+    if (name.contains('superior') || type.contains('superior')) return 'https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&q=80&w=1000';
+    if (name.contains('deluxe') || type.contains('deluxe')) return 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&q=80&w=1000';
+    if (name.contains('suite') || type.contains('suite')) return 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&q=80&w=1000';
+    return 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&q=80&w=1000'; // fallback standard room
   }
 
   Future<void> _fetchRooms() async {
@@ -34,9 +42,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
           setState(() {
             _rooms = List<Map<String, dynamic>>.from(rooms.map((r) {
               final roomType = (r['room_type'] as String?) ?? 'standard';
+              final roomName = r['name'] ?? 'Room ${r['room_number']}';
               return {
                 'id': r['id'],
-                'name': r['name'] ?? 'Room ${r['room_number']}',
+                'name': roomName,
                 'desc': '${roomType[0].toUpperCase()}${roomType.substring(1)} room on floor ${r['floor'] ?? 1}',
                 'price': (r['base_price'] as num?)?.toInt() ?? 179,
                 'originalPrice': ((r['base_price'] as num?)?.toDouble() ?? 179.0 * 1.15).round(),
@@ -44,7 +53,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 'bed': roomType.contains('suite') || roomType.contains('presidential') ? 'King Bed' : roomType.contains('deluxe') ? 'King Bed' : 'Queen Bed',
                 'size': roomType.contains('suite') ? '65m²' : roomType.contains('deluxe') ? '42m²' : '28m²',
                 'available': 1,
-                'emoji': _roomEmojis[roomType] ?? '🏨',
+                'image': _getRoomImage(roomName.toString(), roomType),
                 'amenities': 'Free Wi-Fi, Smart TV, AC, Mini Bar, Room Service',
                 'hotelId': r['hotel_id'],
               };
@@ -113,14 +122,16 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     child: Card(
                       clipBehavior: Clip.antiAlias,
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        // Room header with emoji
+                        // Room header image
                         Container(
-                          height: 100,
+                          height: 180,
                           width: double.infinity,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [cs.primaryContainer, cs.primaryContainer.withOpacity(0.5)]),
+                          decoration: BoxDecoration(color: cs.surfaceVariant),
+                          child: Image.network(
+                            room['image'] as String,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => const Center(child: Icon(Icons.broken_image, size: 48)),
                           ),
-                          child: Center(child: Text(room['emoji'] as String, style: const TextStyle(fontSize: 48))),
                         ),
                         Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [

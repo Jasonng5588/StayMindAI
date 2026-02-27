@@ -134,25 +134,6 @@ class ServiceDetailScreen extends StatelessWidget {
                         letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(height: 48),
-                    // Action button at the bottom
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.call),
-                        label: const Text('Contact Front Desk', style: TextStyle(fontSize: 16)),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        onPressed: () {
-                          // Simple mock action, in a real app this would navigate to chat or support
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Connecting to front desk...')),
-                          );
-                        },
-                      ),
-                    ),
                     const SizedBox(height: 32),
                   ],
                 ),
