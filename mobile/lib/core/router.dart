@@ -20,6 +20,7 @@ import '../features/guest/my_reward_screen.dart';
 import '../features/guest/support_screen.dart';
 import '../features/guest/vouchers_screen.dart';
 import '../features/guest/guest_shell.dart';
+import '../features/guest/service_detail_screen.dart';
 import '../features/staff/staff_dashboard_screen.dart';
 import '../features/staff/housekeeping_screen.dart';
 import '../features/staff/rooms_screen.dart' as staff;
@@ -73,7 +74,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           // Tab 0: Home
           StatefulShellBranch(navigatorKey: _guestShellKey, routes: [
-            GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+            GoRoute(
+              path: '/', 
+              builder: (_, __) => const HomeScreen(),
+              routes: [
+                GoRoute(
+                  path: 'service-detail',
+                  pageBuilder: (_, state) => AppPageTransitions.fadeScale(
+                    key: state.pageKey,
+                    child: ServiceDetailScreen(serviceData: state.extra as Map<String, dynamic>),
+                  ),
+                ),
+              ],
+            ),
           ]),
           // Tab 1: Book Room
           StatefulShellBranch(routes: [

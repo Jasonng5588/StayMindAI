@@ -257,11 +257,41 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(children: [
-                AnimatedEntrance(delayMs: 400, child: TapBounce(child: _ServiceTile(icon: Icons.restaurant, iconColor: const Color(0xFFF97316), title: 'Room Service', subtitle: 'Order food & beverages to your room', onTap: () {}))),
-                AnimatedEntrance(delayMs: 450, child: TapBounce(child: _ServiceTile(icon: Icons.spa, iconColor: const Color(0xFFEC4899), title: 'Spa & Wellness', subtitle: 'Relax and rejuvenate with our spa treatments', onTap: () {}))),
-                AnimatedEntrance(delayMs: 500, child: TapBounce(child: _ServiceTile(icon: Icons.pool, iconColor: const Color(0xFF06B6D4), title: 'Pool & Recreation', subtitle: 'Enjoy our pool facilities and activities', onTap: () {}))),
-                AnimatedEntrance(delayMs: 550, child: TapBounce(child: _ServiceTile(icon: Icons.local_laundry_service, iconColor: const Color(0xFF8B5CF6), title: 'Laundry Service', subtitle: 'Professional laundry & dry cleaning', onTap: () {}))),
-                AnimatedEntrance(delayMs: 600, child: TapBounce(child: _ServiceTile(icon: Icons.local_taxi, iconColor: const Color(0xFF14B8A6), title: 'Airport Transfer', subtitle: 'Convenient airport pickup & drop-off', onTap: () {}))),
+                AnimatedEntrance(delayMs: 400, child: TapBounce(child: _ServiceTile(icon: Icons.restaurant, iconColor: const Color(0xFFF97316), title: 'Room Service', subtitle: 'Order food & beverages to your room', onTap: () {
+                  context.push('/service-detail', extra: {
+                    'title': 'Room Service', 'subtitle': 'Order food & beverages to your room', 'icon': Icons.restaurant, 'iconColor': const Color(0xFFF97316),
+                    'image': 'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&q=80&w=1000',
+                    'article': 'Experience the ultimate convenience and luxury with our 24/7 in-room dining service. Whether you are craving a midnight snack, a hearty breakfast in bed, or a romantic dinner for two, our expert chefs have curated a menu to satisfy every palate.\n\nOur extensive room service menu features a wide selection of international and local cuisines, prepared with the freshest ingredients. Simply browse the menu, place your order, and our dedicated staff will deliver your meal promptly, ensuring the highest standards of hygiene and presentation.\n\nEnjoy a private dining experience in the comfort of your room, complete with fine dining setup and personalized service. Special dietary requirements can also be accommodated upon request.'
+                  });
+                }))),
+                AnimatedEntrance(delayMs: 450, child: TapBounce(child: _ServiceTile(icon: Icons.spa, iconColor: const Color(0xFFEC4899), title: 'Spa & Wellness', subtitle: 'Relax and rejuvenate with our spa treatments', onTap: () {
+                  context.push('/service-detail', extra: {
+                    'title': 'Spa & Wellness', 'subtitle': 'Relax and rejuvenate with our spa treatments', 'icon': Icons.spa, 'iconColor': const Color(0xFFEC4899),
+                    'image': 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&q=80&w=1000',
+                    'article': 'Step into an oasis of tranquility and let your stress melt away at our premium Spa & Wellness center. Designed to restore balance to your mind, body, and spirit, we offer a comprehensive range of holistic treatments and therapeutic massages.\n\nOur certified therapists specialize in aromatherapy, deep tissue massage, hot stone therapy, and signature facials using organic, ethically sourced products. The facility is equipped with state-of-the-art steam rooms, saunas, and relaxation lounges where you can unwind before or after your session.\n\nWhether you need a quick 30-minute rejuvenation or a full-day pampering package, our wellness experts will tailor the experience to your exact needs.'
+                  });
+                }))),
+                AnimatedEntrance(delayMs: 500, child: TapBounce(child: _ServiceTile(icon: Icons.pool, iconColor: const Color(0xFF06B6D4), title: 'Pool & Recreation', subtitle: 'Enjoy our pool facilities and activities', onTap: () {
+                  context.push('/service-detail', extra: {
+                    'title': 'Pool & Recreation', 'subtitle': 'Enjoy our pool facilities and activities', 'icon': Icons.pool, 'iconColor': const Color(0xFF06B6D4),
+                    'image': 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&q=80&w=1000',
+                    'article': 'Dive into relaxation at our stunning infinity pool, offering breathtaking panoramic views of the city skyline. Crystal-clear, temperature-controlled waters invite you for a refreshing morning swim or a relaxing evening dip under the stars.\n\nThe pool deck is lined with luxurious cabanas and comfortable sun loungers, perfect for soaking up the sun with a good book. Our poolside bar serves a delightful array of tropical cocktails, fresh juices, and light snacks throughout the day.\n\nFor those seeking more active recreation, we also offer a fully-equipped fitness center just steps away, along with weekly aqua-aerobics and yoga sessions by the water.'
+                  });
+                }))),
+                AnimatedEntrance(delayMs: 550, child: TapBounce(child: _ServiceTile(icon: Icons.local_laundry_service, iconColor: const Color(0xFF8B5CF6), title: 'Laundry Service', subtitle: 'Professional laundry & dry cleaning', onTap: () {
+                  context.push('/service-detail', extra: {
+                    'title': 'Laundry Service', 'subtitle': 'Professional laundry & dry cleaning', 'icon': Icons.local_laundry_service, 'iconColor': const Color(0xFF8B5CF6),
+                    'image': 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&q=80&w=1000',
+                    'article': 'Travel light and stay fresh with our professional Laundry and Dry Cleaning services. We understand that your wardrobe requires the utmost care, which is why we use state-of-the-art equipment and eco-friendly cleaning agents to ensure your garments are impeccably cleaned and handled.\n\nWe offer both regular and express services. Our standard return time is within 24 hours, but for urgent needs, our express service guarantees your clothes back within 4 hours. From everyday items to delicate fabrics and formal wear, our experienced team provides meticulous care and precision pressing.\n\nSimply place your items in the laundry bag provided in your wardrobe, fill out the form, and notify housekeeping for a quick pickup.'
+                  });
+                }))),
+                AnimatedEntrance(delayMs: 600, child: TapBounce(child: _ServiceTile(icon: Icons.local_taxi, iconColor: const Color(0xFF14B8A6), title: 'Airport Transfer', subtitle: 'Convenient airport pickup & drop-off', onTap: () {
+                  context.push('/service-detail', extra: {
+                    'title': 'Airport Transfer', 'subtitle': 'Convenient airport pickup & drop-off', 'icon': Icons.local_taxi, 'iconColor': const Color(0xFF14B8A6),
+                    'image': 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=1000',
+                    'article': 'Start and end your journey in absolute comfort and elegance. Our premium Airport Transfer service offers a seamless, hassle-free transition between the airport and the hotel. Say goodbye to waiting in taxi lines or navigating public transit with luggage.\n\nOur fleet includes luxury sedans, spacious SUVs, and executive vans to accommodate individuals, families, and larger groups. All our vehicles are driven by professional, courteous, and highly-trained chauffeurs who monitor your flight status in real-time to ensure they are there precisely when you arrive.\n\nComplimentary Wi-Fi, bottled water, and reading materials are provided in every vehicle. To book your ride, please contact the concierge at least 12 hours in advance with your flight details.'
+                  });
+                }))),
               ]),
             ),
           ),
